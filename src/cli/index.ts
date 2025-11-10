@@ -20,7 +20,10 @@ import { RelationshipGraphImpl } from '../parser/relationship-graph.js';
 import { ParsedXMLResultsImpl } from '../parser/xml-results.js';
 import { CrossReferenceBuilder } from '../parser/cross-reference.js';
 import { saveParsedXMLResults, saveRelationshipGraph } from '../parser/xml-results-persistence.js';
+import { parseAllLWCComponents } from '../parser/lwc-parser-integration.js';
+import { saveParsedLWCResults } from '../parser/lwc-results-persistence.js';
 import { writeFile } from 'fs/promises';
+import { join } from 'path';
 
 const program = new Command();
 
@@ -305,6 +308,69 @@ program
       );
     } catch (error) {
       logger.error({ error }, 'XML parsing failed');
+      process.exit(1);
+    }
+  });
+
+// Parse LWC command
+program
+  .command('parse-lwc')
+  .description('Parse Lightning Web Component files (.js, .html, .css)')
+  .argument('[path]', 'Path to Salesforce metadata directory (required unless --test-default is used)')
+  .option(
+    '-o, --output <path>',
+    'Output directory for parsed results',
+    './parsed-results'
+  )
+  .option(
+    '-d, --dependencies <path>',
+    'Path to save dependency graph JSON file',
+    './component-dependency-graph.json'
+  )
+  .option('-c, --concurrency <number>', 'Concurrency limit for parsing', '10')
+  .option('--test-default', 'Use test default path (for development)')
+  .action(async (pathArg, options) => {
+    try {
+      // Determine path to use
+      const metadataPath = options.testDefault
+        ? getPath(undefined, true)
+        : getPath(pathArg, false);
+
+      // Validate path
+      await validatePath(metadataPath);
+
+      logger.info({ path: metadataPath }, 'Starting LWC component parsing');
+
+      const concurrency = parseInt(options.concurrency, 10);
+
+      // Parse LWC components
+      const parseResult = await parseAllLWCComponents({
+        metadataPath,
+        concurrency,
+      });
+
+      // Save results
+      const outputPath = join(options.output, 'parsed-lwc-results.json');
+      await saveParsedLWCResults(parseResult.results.toJSON(), outputPath);
+
+      // Save dependency graph
+      await writeFile(
+        options.dependencies,
+        JSON.stringify(parseResult.results.dependencyGraph.toJSON(), null, 2),
+        'utf-8'
+      );
+
+      logger.info(
+        {
+          components: parseResult.components.length,
+          errors: parseResult.errors,
+          warnings: parseResult.warnings,
+          outputDir: options.output,
+        },
+        'LWC parsing completed successfully'
+      );
+    } catch (error) {
+      logger.error({ error }, 'LWC parsing failed');
       process.exit(1);
     }
   });
