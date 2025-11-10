@@ -29,11 +29,11 @@ This roadmap outlines the phased development plan for the Salesforce Test Automa
 ## Phase 2: Code Parsing & Analysis
 
 ### JavaScript/TypeScript Parser
-- [ ] Parse Lightning Web Component JavaScript files (.js)
-- [ ] Extract component properties and methods
-- [ ] Parse HTML templates (.html) from LWC components
-- [ ] Parse CSS files (.css) for styling information
-- [ ] Extract component metadata and dependencies
+- [x] Parse Lightning Web Component JavaScript files (.js)
+- [x] Extract component properties and methods
+- [x] Parse HTML templates (.html) from LWC components
+- [x] Parse CSS files (.css) for styling information
+- [x] Extract component metadata and dependencies
 
 ### Apex Code Parser
 - [ ] Parse Apex class files (.cls)
