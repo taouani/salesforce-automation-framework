@@ -17,3 +17,4 @@ test-temp-*/
 my-test-project/
 relationship-graph.json
 component-dependency-graph.json
+apex-dependency-graph.json

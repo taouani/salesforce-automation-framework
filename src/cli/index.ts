@@ -22,8 +22,11 @@ import { CrossReferenceBuilder } from '../parser/cross-reference.js';
 import { saveParsedXMLResults, saveRelationshipGraph } from '../parser/xml-results-persistence.js';
 import { parseAllLWCComponents } from '../parser/lwc-parser-integration.js';
 import { saveParsedLWCResults } from '../parser/lwc-results-persistence.js';
+import { parseAllApexFiles } from '../parser/apex-parser-integration.js';
+import { saveParsedApexResults, saveApexDependencyGraph } from '../parser/apex-results-persistence.js';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
+import { mkdir } from 'fs/promises';
 
 const program = new Command();
 
@@ -371,6 +374,72 @@ program
       );
     } catch (error) {
       logger.error({ error }, 'LWC parsing failed');
+      process.exit(1);
+    }
+  });
+
+// Parse Apex command
+program
+  .command('parse-apex')
+  .description('Parse Apex class and trigger files (.cls, .trigger)')
+  .argument('[path]', 'Path to Salesforce metadata directory (required unless --test-default is used)')
+  .option(
+    '-o, --output <path>',
+    'Output directory for parsed results',
+    './parsed-results'
+  )
+  .option(
+    '-d, --dependencies <path>',
+    'Path to save dependency graph JSON file',
+    './apex-dependency-graph.json'
+  )
+  .option('-c, --concurrency <number>', 'Concurrency limit for parsing', '10')
+  .option('--test-default', 'Use test default path (for development)')
+  .action(async (pathArg, options) => {
+    try {
+      // Determine path to use
+      const metadataPath = options.testDefault
+        ? getPath(undefined, true)
+        : getPath(pathArg, false);
+
+      // Validate path
+      await validatePath(metadataPath);
+
+      logger.info({ path: metadataPath }, 'Starting Apex file parsing');
+
+      const concurrency = parseInt(options.concurrency, 10);
+
+      // Parse Apex files
+      const parseResult = await parseAllApexFiles({
+        metadataPath,
+        concurrency,
+      });
+
+      // Ensure output directory exists
+      await mkdir(options.output, { recursive: true });
+
+      // Save results
+      const outputPath = join(options.output, 'parsed-apex-results.json');
+      await saveParsedApexResults(parseResult.results.toJSON(), outputPath);
+
+      // Save dependency graph
+      await saveApexDependencyGraph(
+        parseResult.results.dependencyGraph.toJSON(),
+        options.dependencies
+      );
+
+      logger.info(
+        {
+          classes: parseResult.classes.length,
+          triggers: parseResult.triggers.length,
+          errors: parseResult.errors,
+          warnings: parseResult.warnings,
+          outputDir: options.output,
+        },
+        'Apex parsing completed successfully'
+      );
+    } catch (error) {
+      logger.error({ error }, 'Apex parsing failed');
       process.exit(1);
     }
   });

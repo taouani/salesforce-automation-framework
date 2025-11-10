@@ -36,12 +36,12 @@ This roadmap outlines the phased development plan for the Salesforce Test Automa
 - [x] Extract component metadata and dependencies
 
 ### Apex Code Parser
-- [ ] Parse Apex class files (.cls)
-- [ ] Extract class methods, properties, and annotations
-- [ ] Parse Apex trigger files (.trigger)
-- [ ] Identify test classes and test methods
-- [ ] Extract SOQL queries and DML operations
-- [ ] Map Apex classes to related objects
+- [x] Parse Apex class files (.cls)
+- [x] Extract class methods, properties, and annotations
+- [x] Parse Apex trigger files (.trigger)
+- [x] Identify test classes and test methods
+- [x] Extract SOQL queries and DML operations
+- [x] Map Apex classes to related objects
 
 ### Flow Parser
 - [ ] Parse Flow definition files (.flow-meta.xml)
