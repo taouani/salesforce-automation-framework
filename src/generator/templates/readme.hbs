@@ -1,0 +1,43 @@
+# {{projectName}}
+
+Playwright test automation project for Salesforce.
+
+## Setup
+
+1. Install dependencies:
+```bash
+npm install
+```
+
+2. Configure environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your Salesforce org credentials
+```
+
+3. Install Playwright browsers:
+```bash
+npx playwright install
+```
+
+## Running Tests
+
+- Run all tests: `npm test`
+- Run tests in UI mode: `npm run test:ui`
+- Run tests in debug mode: `npm run test:debug`
+- Run tests in headed mode: `npm run test:headed`
+- View test report: `npm run test:report`
+
+## Project Structure
+
+- `pages/` - Page Object Model classes
+- `tests/` - Test specification files
+- `config/` - Configuration files
+- `utils/` - Utility functions and helpers
+- `models/` - Data models and TypeScript interfaces
+- `fixtures/` - Custom Playwright fixtures
+
+## Documentation
+
+For more information, see the [Playwright documentation](https://playwright.dev).
+

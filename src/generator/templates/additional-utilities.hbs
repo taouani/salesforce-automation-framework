@@ -1,0 +1,157 @@
+/**
+ * Additional utility functions for Salesforce test automation
+ */
+
+import { Page } from '@playwright/test';
+
+/**
+ * Date formatting utilities
+ */
+export class DateUtils {
+  /**
+   * Formats date to Salesforce date format (YYYY-MM-DD)
+   */
+  static toSalesforceDate(date: Date): string {
+    return date.toISOString().split('T')[0];
+  }
+
+  /**
+   * Formats date to Salesforce datetime format (YYYY-MM-DDTHH:mm:ss.sssZ)
+   */
+  static toSalesforceDateTime(date: Date): string {
+    return date.toISOString();
+  }
+
+  /**
+   * Formats date to readable string
+   */
+  static toReadableDate(date: Date): string {
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  }
+}
+
+/**
+ * String manipulation utilities
+ */
+export class StringUtils {
+  /**
+   * Converts string to Salesforce API name format (PascalCase)
+   */
+  static toApiName(str: string): string {
+    return str
+      .split(/[\s_-]+/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join('');
+  }
+
+  /**
+   * Converts string to Salesforce label format (Title Case)
+   */
+  static toLabel(str: string): string {
+    return str
+      .split(/[\s_-]+/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  }
+
+  /**
+   * Truncates string to specified length
+   */
+  static truncate(str: string, length: number): string {
+    return str.length > length ? str.substring(0, length) + '...' : str;
+  }
+}
+
+/**
+ * Salesforce-specific helper functions
+ */
+export class SalesforceUtils {
+  /**
+   * Gets current Salesforce org URL from page
+   */
+  static async getCurrentOrgUrl(page: Page): Promise<string> {
+    const url = page.url();
+    const match = url.match(/https:\/\/([^.]+\.(?:salesforce|force)\.com)/);
+    return match ? match[0] : url;
+  }
+
+  /**
+   * Checks if user is logged into Salesforce
+   */
+  static async isLoggedIn(page: Page): Promise<boolean> {
+    try {
+      await page.waitForSelector('lightning-app-header, .slds-page-header', { timeout: 5000 });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Gets current Salesforce user name from page
+   */
+  static async getCurrentUserName(page: Page): Promise<string | null> {
+    try {
+      const userNameElement = page.locator('.slds-global-header__text, [data-aura-class="oneUserCard"]').first();
+      return await userNameElement.textContent();
+    } catch {
+      return null;
+    }
+  }
+}
+
+/**
+ * Error handling and retry logic utilities
+ */
+export class RetryUtils {
+  /**
+   * Retries a function with exponential backoff
+   */
+  static async retryWithBackoff<T>(
+    fn: () => Promise<T>,
+    maxRetries = 3,
+    initialDelay = 1000
+  ): Promise<T> {
+    let lastError: Error | undefined;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        if (attempt < maxRetries) {
+          const delay = initialDelay * Math.pow(2, attempt);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    throw lastError || new Error('Retry failed');
+  }
+
+  /**
+   * Waits for condition to be true with retries
+   */
+  static async waitForCondition(
+    condition: () => Promise<boolean>,
+    timeout = 30000,
+    interval = 1000
+  ): Promise<void> {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeout) {
+      if (await condition()) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, interval));
+    }
+
+    throw new Error('Condition not met within timeout');
+  }
+}
+

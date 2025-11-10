@@ -1,0 +1,110 @@
+/**
+ * Base Page Object Model class for Salesforce pages
+ */
+
+import { Page, Locator } from '@playwright/test';
+import { waitForRecordLoad, waitForSpinnerToDisappear } from '../utils/wait-utilities.js';
+
+/**
+ * Abstract base class for Salesforce page objects
+ */
+export abstract class BasePage {
+  constructor(protected page: Page) {}
+
+  /**
+   * Navigates to a Salesforce object list view
+   */
+  async goToObject(objectApiName: string): Promise<void> {
+    const url = `/lightning/o/${objectApiName}/list`;
+    await this.page.goto(url);
+    await waitForRecordLoad(this.page);
+  }
+
+  /**
+   * Navigates to a Salesforce record detail page
+   */
+  async goToRecord(objectApiName: string, recordId: string): Promise<void> {
+    const url = `/lightning/r/${objectApiName}/${recordId}/view`;
+    await this.page.goto(url);
+    await waitForRecordLoad(this.page);
+  }
+
+  /**
+   * Navigates to a Salesforce app
+   */
+  async goToApp(appName: string): Promise<void> {
+    const url = `/lightning/app/${appName}`;
+    await this.page.goto(url);
+    await waitForSpinnerToDisappear(this.page);
+  }
+
+  /**
+   * Clicks a Lightning button by label
+   */
+  async clickLightningButton(buttonLabel: string): Promise<void> {
+    const button = this.page.locator(`lightning-button[data-label="${buttonLabel}"]`).first();
+    await button.waitFor({ state: 'visible' });
+    await button.click();
+    await waitForSpinnerToDisappear(this.page);
+  }
+
+  /**
+   * Fills a Lightning input field by label
+   */
+  async fillLightningInput(fieldLabel: string, value: string): Promise<void> {
+    const input = this.page.locator(`lightning-input[label="${fieldLabel}"]`).first();
+    await input.waitFor({ state: 'visible' });
+    await input.fill(value);
+  }
+
+  /**
+   * Gets value from a Lightning input field by label
+   */
+  async getLightningInputValue(fieldLabel: string): Promise<string | null> {
+    const input = this.page.locator(`lightning-input[label="${fieldLabel}"]`).first();
+    await input.waitFor({ state: 'visible' });
+    return await input.inputValue();
+  }
+
+  /**
+   * Clicks a Lightning combobox option
+   */
+  async selectLightningCombobox(comboboxLabel: string, optionValue: string): Promise<void> {
+    const combobox = this.page.locator(`lightning-combobox[label="${comboboxLabel}"]`).first();
+    await combobox.waitFor({ state: 'visible' });
+    await combobox.click();
+    await this.page.locator(`lightning-base-combobox-item[data-value="${optionValue}"]`).click();
+  }
+
+  /**
+   * Clicks a Lightning checkbox by label
+   */
+  async clickLightningCheckbox(checkboxLabel: string): Promise<void> {
+    const checkbox = this.page.locator(`lightning-input[type="checkbox"][label="${checkboxLabel}"]`).first();
+    await checkbox.waitFor({ state: 'visible' });
+    await checkbox.click();
+  }
+
+  /**
+   * Waits for page to load completely
+   */
+  async waitForPageLoad(): Promise<void> {
+    await waitForSpinnerToDisappear(this.page);
+    await waitForRecordLoad(this.page);
+  }
+
+  /**
+   * Gets the current page URL
+   */
+  getCurrentUrl(): string {
+    return this.page.url();
+  }
+
+  /**
+   * Takes a screenshot of the current page
+   */
+  async takeScreenshot(name: string): Promise<void> {
+    await this.page.screenshot({ path: `screenshots/${name}-${Date.now()}.png`, fullPage: true });
+  }
+}
+

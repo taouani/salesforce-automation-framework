@@ -1,0 +1,78 @@
+/**
+ * Element wait utilities for Salesforce components
+ */
+
+import { Page, Locator } from '@playwright/test';
+
+/**
+ * Waits for Salesforce Lightning component to be visible
+ */
+export async function waitForLightningComponent(
+  page: Page,
+  componentName: string,
+  timeout = 30000
+): Promise<Locator> {
+  const selector = `lightning-${componentName.toLowerCase()}`;
+  const locator = page.locator(selector).first();
+  await locator.waitFor({ state: 'visible', timeout });
+  return locator;
+}
+
+/**
+ * Waits for Salesforce Lightning input field
+ */
+export async function waitForLightningInput(
+  page: Page,
+  fieldLabel: string,
+  timeout = 30000
+): Promise<Locator> {
+  const locator = page.locator(`lightning-input[label="${fieldLabel}"]`).first();
+  await locator.waitFor({ state: 'visible', timeout });
+  return locator;
+}
+
+/**
+ * Waits for Salesforce Lightning button
+ */
+export async function waitForLightningButton(
+  page: Page,
+  buttonLabel: string,
+  timeout = 30000
+): Promise<Locator> {
+  const locator = page.locator(`lightning-button[data-label="${buttonLabel}"]`).first();
+  await locator.waitFor({ state: 'visible', timeout });
+  return locator;
+}
+
+/**
+ * Waits for Salesforce record to load
+ */
+export async function waitForRecordLoad(page: Page, timeout = 30000): Promise<void> {
+  // Wait for record header or main content area
+  await page.waitForSelector('lightning-record-header, .slds-page-header', { timeout });
+}
+
+/**
+ * Waits for Salesforce spinner to disappear
+ */
+export async function waitForSpinnerToDisappear(page: Page, timeout = 30000): Promise<void> {
+  const spinner = page.locator('.slds-spinner, [role="status"]');
+  await spinner.waitFor({ state: 'hidden', timeout });
+}
+
+/**
+ * Waits for Salesforce toast message
+ */
+export async function waitForToastMessage(
+  page: Page,
+  messageText?: string,
+  timeout = 10000
+): Promise<Locator> {
+  const toastSelector = messageText
+    ? `text=${messageText}`
+    : '.slds-notify, [role="alert"]';
+  const locator = page.locator(toastSelector).first();
+  await locator.waitFor({ state: 'visible', timeout });
+  return locator;
+}
+

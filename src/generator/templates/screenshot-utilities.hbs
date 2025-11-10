@@ -1,0 +1,49 @@
+/**
+ * Screenshot and recording utilities for test artifacts
+ */
+
+import { Page } from '@playwright/test';
+import { join } from 'path';
+
+/**
+ * Takes a screenshot with a descriptive name
+ */
+export async function takeScreenshot(
+  page: Page,
+  name: string,
+  outputDir = 'screenshots'
+): Promise<string> {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `${name}-${timestamp}.png`;
+  const filepath = join(outputDir, filename);
+  
+  await page.screenshot({ path: filepath, fullPage: true });
+  return filepath;
+}
+
+/**
+ * Takes a screenshot of a specific element
+ */
+export async function takeElementScreenshot(
+  page: Page,
+  selector: string,
+  name: string,
+  outputDir = 'screenshots'
+): Promise<string> {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `${name}-${timestamp}.png`;
+  const filepath = join(outputDir, filename);
+  
+  const element = page.locator(selector).first();
+  await element.screenshot({ path: filepath });
+  return filepath;
+}
+
+/**
+ * Records video of test execution (configured in playwright.config.ts)
+ */
+export function enableVideoRecording(page: Page): void {
+  // Video recording is configured in playwright.config.ts
+  // This function is a placeholder for future video recording utilities
+}
+
