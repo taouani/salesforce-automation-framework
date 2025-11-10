@@ -18,3 +18,5 @@ my-test-project/
 relationship-graph.json
 component-dependency-graph.json
 apex-dependency-graph.json
+flow-dependency-graph.json
+flow-to-object-dependency-graph.json
