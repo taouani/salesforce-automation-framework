@@ -5,4 +5,6 @@ dist/
 .env
 coverage/
 *.tsbuildinfo
-
+registry.json
+relationship-graph.json
+parsed-results/
