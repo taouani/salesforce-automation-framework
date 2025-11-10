@@ -1,0 +1,24 @@
+# Page Object Model Documentation
+
+This directory contains documentation for all generated page objects.
+
+## Page Objects
+
+{{#each pageObjects}}
+- [{{this.name}}](./{{this.name}}.md) - {{this.type}} page object
+{{/each}}
+
+## Usage
+
+Each page object provides methods for interacting with Salesforce UI elements. Import and use them in your Playwright tests:
+
+```typescript
+import { {{#each pageObjects}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}} } from './pages/...';
+
+test('example test', async ({ page }) => {
+  const pageObject = new {{pageObjects.0.name}}(page);
+  await pageObject.goto();
+  // Use page object methods...
+});
+```
+

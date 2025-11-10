@@ -1,0 +1,62 @@
+/**
+ * Page Object for Flow Screen: {{definition.screenName}} (Flow: {{definition.flowName}})
+ * Generated from Salesforce metadata
+ */
+
+import { Page } from '@playwright/test';
+import { BaseFlowScreen } from '../base/base-flow-screen.js';
+
+/**
+ * Page Object class for {{definition.flowName}} Flow - {{definition.screenName}} screen
+ */
+export class {{definition.name}} extends BaseFlowScreen {
+  constructor(page: Page) {
+    super(page);
+  }
+
+  // Input locators
+{{#each definition.inputs}}
+  readonly {{this.name}}Input = this.page.getByLabel('{{this.label}}');
+{{/each}}
+
+  // Button locators
+{{#each definition.buttons}}
+  readonly {{this.label}}Button = this.page.getByRole('button', { name: /{{this.label}}/i });
+{{/each}}
+
+  /**
+   * Waits for Flow screen to load
+   */
+  async waitForScreen(): Promise<void> {
+    await this.waitForFlowScreen();
+  }
+
+  // Input methods
+  {{#each definition.inputs}}
+  /**
+   * Fills {{this.label}} input
+   */
+  async fill{{this.name}}(value: string): Promise<void> {
+    await this.fillFlowInput('{{this.label}}', value);
+  }
+
+  /**
+   * Gets {{this.label}} input value
+   */
+  async get{{this.name}}(): Promise<string> {
+    return await this.getFlowInputValue('{{this.label}}');
+  }
+  {{/each}}
+
+  // Button methods
+  {{#each definition.buttons}}
+  /**
+   * Clicks {{this.label}} button
+   */
+  async click{{this.label}}(): Promise<void> {
+    await this.{{this.label}}Button.click();
+    await this.waitForSpinner();
+  }
+  {{/each}}
+}
+

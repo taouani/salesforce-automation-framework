@@ -1,0 +1,82 @@
+/**
+ * Base Page Object class for Lightning pages
+ */
+
+import { Page } from '@playwright/test';
+import { waitForSpinnerToDisappear } from '../../utils/wait-utilities.js';
+import { BaseObjectPage } from './base-object-page.js';
+
+/**
+ * Abstract base class for Lightning page objects
+ */
+export abstract class BaseLightningPage extends BaseObjectPage {
+  constructor(page: Page) {
+    super(page);
+  }
+
+  /**
+   * Navigates to a Lightning app
+   */
+  async goToApp(appName: string): Promise<void> {
+    const url = `/lightning/app/${appName}`;
+    await this.page.goto(url);
+    await waitForSpinnerToDisappear(this.page);
+  }
+
+  /**
+   * Navigates to a Lightning tab
+   */
+  async navigateToTab(tabName: string): Promise<void> {
+    const tab = this.page.getByRole('tab', { name: tabName });
+    await tab.waitFor({ state: 'visible' });
+    await tab.click();
+    await waitForSpinnerToDisappear(this.page);
+  }
+
+  /**
+   * Waits for flexipage to load
+   */
+  async waitForFlexipage(): Promise<void> {
+    await this.page.locator('div[data-aura-class="forceFlexipageRuntime"]').waitFor({ state: 'visible' });
+    await waitForSpinnerToDisappear(this.page);
+  }
+
+  /**
+   * Clicks a Lightning button by label
+   */
+  async clickLightningButton(buttonLabel: string): Promise<void> {
+    const button = this.page.locator(`lightning-button[data-label="${buttonLabel}"]`).first();
+    await button.waitFor({ state: 'visible' });
+    await button.click();
+    await waitForSpinnerToDisappear(this.page);
+  }
+
+  /**
+   * Fills a Lightning input field by label
+   */
+  async fillLightningInput(fieldLabel: string, value: string): Promise<void> {
+    const input = this.page.locator(`lightning-input[label="${fieldLabel}"]`).first();
+    await input.waitFor({ state: 'visible' });
+    await input.fill(value);
+  }
+
+  /**
+   * Gets value from a Lightning input field by label
+   */
+  async getLightningInputValue(fieldLabel: string): Promise<string | null> {
+    const input = this.page.locator(`lightning-input[label="${fieldLabel}"]`).first();
+    await input.waitFor({ state: 'visible' });
+    return await input.inputValue();
+  }
+
+  /**
+   * Selects a Lightning combobox option
+   */
+  async selectLightningCombobox(comboboxLabel: string, optionValue: string): Promise<void> {
+    const combobox = this.page.locator(`lightning-combobox[label="${comboboxLabel}"]`).first();
+    await combobox.waitFor({ state: 'visible' });
+    await combobox.click();
+    await this.page.locator(`lightning-base-combobox-item[data-value="${optionValue}"]`).click();
+  }
+}
+

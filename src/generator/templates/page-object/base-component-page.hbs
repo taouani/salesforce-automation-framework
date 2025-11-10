@@ -1,0 +1,54 @@
+/**
+ * Base Page Object class for Lightning/Aura component pages
+ */
+
+import { Page } from '@playwright/test';
+import { waitForSpinnerToDisappear } from '../../utils/wait-utilities.js';
+import { BaseLightningPage } from './base-lightning-page.js';
+
+/**
+ * Abstract base class for component page objects
+ */
+export abstract class BaseComponentPage extends BaseLightningPage {
+  constructor(page: Page) {
+    super(page);
+  }
+
+  /**
+   * Waits for component to be visible
+   */
+  async waitForComponent(componentSelector: string): Promise<void> {
+    await this.page.locator(componentSelector).waitFor({ state: 'visible' });
+  }
+
+  /**
+   * Checks if component is visible
+   */
+  async isComponentVisible(componentSelector: string): Promise<boolean> {
+    return await this.page.locator(componentSelector).isVisible();
+  }
+
+  /**
+   * Gets component attribute value
+   */
+  async getComponentAttribute(componentSelector: string, attribute: string): Promise<string | null> {
+    return await this.page.locator(componentSelector).getAttribute(attribute);
+  }
+
+  /**
+   * Clicks component
+   */
+  async clickComponent(componentSelector: string): Promise<void> {
+    await this.page.locator(componentSelector).click();
+    await waitForSpinnerToDisappear(this.page);
+  }
+
+  /**
+   * Waits for component event to fire
+   */
+  async waitForComponentEvent(eventName: string): Promise<void> {
+    // Wait for event to be dispatched (implementation depends on component type)
+    await this.page.waitForTimeout(500); // Placeholder - actual implementation would listen for custom events
+  }
+}
+

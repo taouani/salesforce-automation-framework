@@ -1,0 +1,128 @@
+/**
+ * Page Object for {{object.label}} ({{object.fullName}})
+ * Generated from Salesforce metadata
+ */
+
+import { Page } from '@playwright/test';
+import { BaseObjectPage } from '../base/base-object-page.js';
+
+/**
+ * Page Object class for {{definition.objectName}} object
+ */
+export class {{definition.name}} extends BaseObjectPage {
+  constructor(page: Page) {
+    super(page);
+  }
+
+  // Locators
+{{#each definition.fields}}
+  readonly {{this.name}} = this.page.getByLabel('{{this.fieldLabel}}');
+{{/each}}
+
+  // Navigation methods
+  /**
+   * Navigates to {{definition.objectName}} list view
+   */
+  async gotoList(): Promise<void> {
+    await this.goToObjectList('{{definition.objectName}}');
+  }
+
+  /**
+   * Navigates to a {{definition.objectName}} record
+   */
+  async gotoRecord(recordId: string): Promise<void> {
+    await this.goToRecord('{{definition.objectName}}', recordId);
+  }
+
+  /**
+   * Navigates to {{definition.objectName}} record edit page
+   */
+  async gotoRecordEdit(recordId: string): Promise<void> {
+    await this.goToRecordEdit('{{definition.objectName}}', recordId);
+  }
+
+  // CRUD methods
+  /**
+   * Creates a new {{definition.objectName}} record
+   */
+  async create(recordData: Record<string, unknown>): Promise<void> {
+    await this.gotoList();
+    await this.page.getByRole('button', { name: /New/i }).click();
+    await this.waitForPageLoad();
+    
+    // Fill fields
+    {{#each definition.fields}}
+    if (recordData['{{this.fieldName}}'] !== undefined) {
+      await this.{{this.name}}.fill(String(recordData['{{this.fieldName}}']));
+    }
+    {{/each}}
+    
+    await this.clickSave();
+    await this.waitForToast();
+  }
+
+  /**
+   * Reads a {{definition.objectName}} record
+   */
+  async read(recordId: string): Promise<Record<string, string>> {
+    await this.gotoRecord(recordId);
+    await this.waitForPageLoad();
+    
+    const record: Record<string, string> = {};
+    {{#each definition.fields}}
+    try {
+      record['{{this.fieldName}}'] = await this.{{this.name}}.inputValue();
+    } catch {
+      // Field may not be visible or accessible
+    }
+    {{/each}}
+    
+    return record;
+  }
+
+  /**
+   * Updates a {{definition.objectName}} record
+   */
+  async update(recordId: string, updates: Record<string, unknown>): Promise<void> {
+    await this.gotoRecordEdit(recordId);
+    await this.waitForPageLoad();
+    
+    // Update fields
+    {{#each definition.fields}}
+    if (updates['{{this.fieldName}}'] !== undefined) {
+      await this.{{this.name}}.fill(String(updates['{{this.fieldName}}']));
+    }
+    {{/each}}
+    
+    await this.clickSave();
+    await this.waitForToast();
+  }
+
+  /**
+   * Deletes a {{definition.objectName}} record
+   */
+  async delete(recordId: string): Promise<void> {
+    await this.gotoRecord(recordId);
+    await this.clickDelete();
+    await this.confirmDelete();
+    await this.waitForToast();
+  }
+
+  // Field interaction methods
+  {{#each definition.fields}}
+  /**
+   * Fills {{this.fieldLabel}} field
+   */
+  async fill{{this.fieldName}}(value: string): Promise<void> {
+    await this.{{this.name}}.fill(value);
+  }
+
+  /**
+   * Gets {{this.fieldLabel}} field value
+   */
+  async get{{this.fieldName}}(): Promise<string> {
+    return await this.{{this.name}}.inputValue();
+  }
+  {{/each}}
+}
+

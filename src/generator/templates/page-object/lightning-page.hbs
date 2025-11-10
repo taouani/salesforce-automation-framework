@@ -1,0 +1,37 @@
+/**
+ * Page Object for Lightning {{definition.pageType}} Page: {{definition.pageName}}
+ * Generated from Salesforce metadata
+ */
+
+import { Page } from '@playwright/test';
+import { BaseLightningPage } from '../base/base-lightning-page.js';
+
+/**
+ * Page Object class for {{definition.pageName}} Lightning page
+ */
+export class {{definition.name}} extends BaseLightningPage {
+  constructor(page: Page) {
+    super(page);
+  }
+
+  // Component locators
+{{#each definition.components}}
+  readonly {{this.name}} = this.page.locator('{{this.selector}}');
+{{/each}}
+
+  /**
+   * Navigates to this Lightning page
+   */
+  async goto(): Promise<void> {
+    await this.waitForFlexipage();
+  }
+
+  /**
+   * Waits for page to be fully loaded
+   */
+  async waitForPageLoad(): Promise<void> {
+    await this.waitForFlexipage();
+    await super.waitForPageLoad();
+  }
+}
+
