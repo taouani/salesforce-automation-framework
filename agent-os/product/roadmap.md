@@ -56,9 +56,15 @@ This roadmap outlines the phased development plan for the Salesforce Test Automa
 - [x] Extract screen details for Playwright test generation
 
 ### Aura Component Parser
-- [ ] Parse Aura component bundles (.cmp, .js, .css)
-- [ ] Extract component attributes and events
-- [ ] Parse Aura application definitions
+- [x] Parse Aura component bundles (.cmp, .js, .css)
+- [x] Extract component attributes and events
+- [x] Parse Aura application definitions
+- [x] Parse Controller, Helper, and Renderer JavaScript files
+- [x] Extract Apex dependencies from Aura components
+- [x] Build dependency graphs (Aura-to-Aura, Aura-to-Apex, Aura-to-Object)
+- [x] Parse Aura application (.app) files
+- [x] CLI integration with `parse-aura` command
+- [x] Integration testing with real Salesforce components (57 components, 17 applications)
 
 ## Phase 3: Test Generation Engine
 

@@ -1,0 +1,3 @@
+<aura:component controller="MyApexController">
+          <aura:attribute name="data" type="Object" />
+        </aura:component>

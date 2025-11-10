@@ -1,0 +1,3 @@
+<aura:component>
+          <div>Unclosed tag
+        </aura:component>
