@@ -1,0 +1,82 @@
+/**
+ * Page Object for LWC Component: {{definition.componentName}}
+ * Generated from Salesforce metadata
+ */
+
+import { Page } from '@playwright/test';
+import { BaseComponentPage } from '../base/base-component-page.js';
+
+/**
+ * Page Object class for {{definition.componentName}} LWC component
+ */
+export class {{definition.name}} extends BaseComponentPage {
+  constructor(page: Page) {
+    super(page);
+  }
+
+  // Component selector
+  private readonly componentSelector = 'c-{{definition.componentName}}';
+
+  // Locators
+{{#each definition.locators}}
+  readonly {{this.name}} = this.page.{{this.strategy}}({{#if this.selector}}'{{this.selector}}'{{else}}this.componentSelector{{/if}});
+{{/each}}
+
+  /**
+   * Waits for component to be visible
+   */
+  async waitForComponent(): Promise<void> {
+    await this.waitForComponent(this.componentSelector);
+  }
+
+  /**
+   * Checks if component is visible
+   */
+  async isComponentVisible(): Promise<boolean> {
+    return await this.isComponentVisible(this.componentSelector);
+  }
+
+  // Property methods
+  {{#each definition.properties}}
+  /**
+   * Sets {{@key}} property
+   */
+  async set{{@key}}(value: {{#if this.type}}{{this.type}}{{else}}any{{/if}}): Promise<void> {
+    // Implementation depends on component structure
+    await this.page.evaluate((selector, prop, val) => {
+      const component = document.querySelector(selector);
+      if (component && (component as any).{{@key}} !== undefined) {
+        (component as any).{{@key}} = val;
+      }
+    }, this.componentSelector, '{{@key}}', value);
+  }
+
+  /**
+   * Gets {{@key}} property value
+   */
+  async get{{@key}}(): Promise<{{#if this.type}}{{this.type}}{{else}}any{{/if}} | null> {
+    return await this.page.evaluate((selector, prop) => {
+      const component = document.querySelector(selector);
+      return component && (component as any).{{@key}} !== undefined
+        ? (component as any).{{@key}}
+        : null;
+    }, this.componentSelector, '{{@key}}');
+  }
+  {{/each}}
+
+  // Event methods
+  {{#each definition.events}}
+  /**
+   * Triggers {{this}} event
+   */
+  async trigger{{this}}(): Promise<void> {
+    await this.page.evaluate((selector) => {
+      const component = document.querySelector(selector);
+      if (component) {
+        component.dispatchEvent(new CustomEvent('{{this}}'));
+      }
+    }, this.componentSelector);
+  }
+  {{/each}}
+}
+

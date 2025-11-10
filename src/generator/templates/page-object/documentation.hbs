@@ -1,0 +1,53 @@
+# {{pageObject.name}}
+
+{{#if pageObject.description}}
+{{pageObject.description}}
+{{/if}}
+
+## Overview
+
+**Type:** {{pageObject.type}}
+{{#if pageObject.objectName}}
+**Object:** {{pageObject.objectName}}
+{{/if}}
+{{#if pageObject.pageName}}
+**Page:** {{pageObject.pageName}}
+{{/if}}
+{{#if pageObject.componentName}}
+**Component:** {{pageObject.componentName}}
+{{/if}}
+{{#if pageObject.flowName}}
+**Flow:** {{pageObject.flowName}}
+{{/if}}
+
+## Locators
+
+{{#each pageObject.locators}}
+### {{this.name}}
+
+- **Strategy:** {{this.strategy}}
+- **Selector:** `{{this.selector}}`
+{{#if this.description}}
+- **Description:** {{this.description}}
+{{/if}}
+
+{{/each}}
+
+## Methods
+
+{{#each pageObject.methods}}
+### {{this.name}}
+
+{{#if this.description}}
+{{this.description}}
+{{/if}}
+
+**Parameters:**
+{{#each this.parameters}}
+- `{{this.name}}` ({{this.type}}){{#if this.optional}} - Optional{{/if}}{{#if this.description}}: {{this.description}}{{/if}}
+{{/each}}
+
+**Returns:** `{{this.returnType}}`
+
+{{/each}}
+

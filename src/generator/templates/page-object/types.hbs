@@ -1,0 +1,23 @@
+/**
+ * Type definitions for generated page objects
+ * Auto-generated - do not edit manually
+ */
+
+import type { Page } from '@playwright/test';
+
+{{#each pageObjects}}
+/**
+ * Type definition for {{this.name}}
+ */
+export interface {{this.name}}Type {
+  {{#each this.locators}}
+  {{this.name}}: ReturnType<Page['{{this.strategy}}']>;
+  {{/each}}
+  
+  {{#each this.methods}}
+  {{this.name}}({{#each this.parameters}}{{this.name}}{{#if this.optional}}?{{/if}}: {{this.type}}{{#unless @last}}, {{/unless}}{{/each}}): {{this.returnType}};
+  {{/each}}
+}
+
+{{/each}}
+

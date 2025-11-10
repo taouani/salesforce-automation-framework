@@ -1,0 +1,29 @@
+/**
+ * Unit tests for {{pageObject.name}}
+ * Auto-generated - do not edit manually
+ */
+
+import { describe, it, expect, beforeEach } from 'vitest';
+import { test, Page } from '@playwright/test';
+import { {{pageObject.name}} } from '../../pages/{{#if (eq pageObject.type "Object")}}objects{{else if (eq pageObject.type "Lightning")}}lightning{{else if (eq pageObject.type "LWC")}}components/lwc{{else if (eq pageObject.type "Aura")}}components/aura{{else if (eq pageObject.type "Flow")}}flows{{/if}}/{{pageObject.name}}.js';
+
+describe('{{pageObject.name}}', () => {
+  let page: Page;
+  let pageObject: {{pageObject.name}};
+
+  beforeEach(async ({ page: testPage }) => {
+    page = testPage;
+    pageObject = new {{pageObject.name}}(page);
+  });
+
+  {{#each pageObject.methods}}
+  describe('{{this.name}}', () => {
+    it('should execute {{this.name}} method', async () => {
+      // TODO: Implement test
+      // await pageObject.{{this.name}}({{#each this.parameters}}/* {{this.name}} */{{#unless @last}}, {{/unless}}{{/each}});
+    });
+  });
+
+  {{/each}}
+});
+

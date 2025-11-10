@@ -1,0 +1,26 @@
+/**
+ * Page Object Factory
+ * Auto-generated - do not edit manually
+ */
+
+import { Page } from '@playwright/test';
+{{#each pageObjects}}
+import { {{this.name}} } from '../pages/{{#if (eq this.type "Object")}}objects{{else if (eq this.type "Lightning")}}lightning{{else if (eq this.type "LWC")}}components/lwc{{else if (eq this.type "Aura")}}components/aura{{else if (eq this.type "Flow")}}flows{{/if}}/{{this.name}}.js';
+{{/each}}
+
+/**
+ * Factory class for creating page object instances
+ */
+export class {{factory.factoryClassName}} {
+  constructor(private page: Page) {}
+
+  {{#each factory.factoryMethods}}
+  /**
+   * Creates a new {{this.returnType}} instance
+   */
+  {{this.name}}({{#each this.parameters}}{{this.name}}: {{this.type}}{{#unless @last}}, {{/unless}}{{/each}}): {{this.returnType}} {
+    return new {{this.returnType}}(this.page{{#if this.parameters}}, {{#each this.parameters}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}});
+  }
+  {{/each}}
+}
+

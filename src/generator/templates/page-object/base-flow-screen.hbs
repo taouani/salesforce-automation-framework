@@ -1,0 +1,73 @@
+/**
+ * Base Page Object class for Flow screen pages
+ */
+
+import { Page } from '@playwright/test';
+import { waitForSpinnerToDisappear } from '../../utils/wait-utilities.js';
+import { BaseLightningPage } from './base-lightning-page.js';
+
+/**
+ * Abstract base class for Flow screen page objects
+ */
+export abstract class BaseFlowScreen extends BaseLightningPage {
+  constructor(page: Page) {
+    super(page);
+  }
+
+  /**
+   * Waits for Flow screen to load
+   */
+  async waitForFlowScreen(): Promise<void> {
+    await this.page.locator('div[class*="flowRuntime"]').waitFor({ state: 'visible' });
+    await waitForSpinnerToDisappear(this.page);
+  }
+
+  /**
+   * Clicks Next button in Flow
+   */
+  async clickNext(): Promise<void> {
+    const button = this.page.getByRole('button', { name: /Next/i });
+    await button.waitFor({ state: 'visible' });
+    await button.click();
+    await waitForSpinnerToDisappear(this.page);
+  }
+
+  /**
+   * Clicks Previous button in Flow
+   */
+  async clickPrevious(): Promise<void> {
+    const button = this.page.getByRole('button', { name: /Previous/i });
+    await button.waitFor({ state: 'visible' });
+    await button.click();
+    await waitForSpinnerToDisappear(this.page);
+  }
+
+  /**
+   * Clicks Finish button in Flow
+   */
+  async clickFinish(): Promise<void> {
+    const button = this.page.getByRole('button', { name: /Finish/i });
+    await button.waitFor({ state: 'visible' });
+    await button.click();
+    await waitForSpinnerToDisappear(this.page);
+  }
+
+  /**
+   * Fills Flow input field
+   */
+  async fillFlowInput(fieldLabel: string, value: string): Promise<void> {
+    const input = this.page.getByLabel(fieldLabel);
+    await input.waitFor({ state: 'visible' });
+    await input.fill(value);
+  }
+
+  /**
+   * Gets Flow input value
+   */
+  async getFlowInputValue(fieldLabel: string): Promise<string> {
+    const input = this.page.getByLabel(fieldLabel);
+    await input.waitFor({ state: 'visible' });
+    return await input.inputValue();
+  }
+}
+

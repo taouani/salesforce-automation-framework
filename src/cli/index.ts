@@ -271,9 +271,14 @@ program
       // Save results
       logger.info('Saving parsed results...');
       await saveParsedXMLResults(results, `${options.output}/parsed-xml-results.json`);
+      
+      // Save relationship graph - if path is relative (starts with ./), make it relative to output directory
+      const relationshipsPath = options.relationships.startsWith('./')
+        ? join(options.output, options.relationships.replace(/^\.\//, ''))
+        : options.relationships;
       await saveRelationshipGraph(
         relationshipGraph.toJSON(),
-        options.relationships
+        relationshipsPath
       );
 
       // Save cross-references summary
@@ -360,9 +365,12 @@ program
       const outputPath = join(options.output, 'parsed-lwc-results.json');
       await saveParsedLWCResults(parseResult.results.toJSON(), outputPath);
 
-      // Save dependency graph
+      // Save dependency graph - if path is relative (starts with ./), make it relative to output directory
+      const dependenciesPath = options.dependencies.startsWith('./')
+        ? join(options.output, options.dependencies.replace(/^\.\//, ''))
+        : options.dependencies;
       await writeFile(
-        options.dependencies,
+        dependenciesPath,
         JSON.stringify(parseResult.results.dependencyGraph.toJSON(), null, 2),
         'utf-8'
       );
@@ -500,15 +508,21 @@ program
         results: parseResult.results,
       });
 
-      // Save dependency graphs
+      // Save dependency graphs - if path is relative (starts with ./), make it relative to output directory
+      const dependenciesPath = options.dependencies.startsWith('./')
+        ? join(options.output, options.dependencies.replace(/^\.\//, ''))
+        : options.dependencies;
       await writeFile(
-        options.dependencies,
+        dependenciesPath,
         JSON.stringify(parseResult.results.dependencyGraph.toJSON(), null, 2),
         'utf-8'
       );
 
+      const toObjectPath = options.toObject.startsWith('./')
+        ? join(options.output, options.toObject.replace(/^\.\//, ''))
+        : options.toObject;
       await writeFile(
-        options.toObject,
+        toObjectPath,
         JSON.stringify(parseResult.results.flowToObjectGraph.toJSON(), null, 2),
         'utf-8'
       );
@@ -645,6 +659,147 @@ program
       );
     } catch (error) {
       logger.error({ error }, 'Test structure generation failed');
+      process.exit(1);
+    }
+  });
+
+// Generate page objects command
+program
+  .command('generate-page-objects')
+  .description('Generate Page Object Model classes from parsed Salesforce metadata')
+  .option(
+    '-i, --input <path>',
+    'Path to parsed metadata results directory (default: ./parsed-results)',
+    './parsed-results'
+  )
+  .option(
+    '-o, --output <path>',
+    'Output directory for generated page objects',
+    './generated-page-objects'
+  )
+  .option(
+    '--template-dir <path>',
+    'Custom template directory (optional)'
+  )
+  .action(async (options) => {
+    try {
+      const { generatePageObjects } = await import('../generator/page-object/generation-engine.js');
+      const { readFile } = await import('fs/promises');
+      const { join } = await import('path');
+      const { existsSync } = await import('fs');
+
+      logger.info({ input: options.input, output: options.output }, 'Starting page object generation');
+
+      // Load parsed metadata
+      const xmlResultsPath = join(options.input, 'parsed-xml-results.json');
+      let objects: unknown[] = [];
+
+      if (existsSync(xmlResultsPath)) {
+        try {
+          const xmlResultsContent = await readFile(xmlResultsPath, 'utf-8');
+          const xmlResults = JSON.parse(xmlResultsContent);
+          objects = xmlResults.objects || [];
+          logger.info({ count: objects.length }, 'Loaded object metadata');
+        } catch (error) {
+          logger.warn({ xmlResultsPath, error }, 'Failed to load XML results, continuing without object metadata');
+        }
+      } else {
+        logger.warn({ xmlResultsPath }, 'XML results file not found, continuing without object metadata');
+      }
+
+      // Load LWC component metadata
+      const lwcResultsPath = join(options.input, 'parsed-lwc-results.json');
+      let lwcComponents: unknown[] = [];
+
+      if (existsSync(lwcResultsPath)) {
+        try {
+          const lwcResultsContent = await readFile(lwcResultsPath, 'utf-8');
+          const lwcResults = JSON.parse(lwcResultsContent);
+          // Convert Record<string, LWCComponentDefinition> to array
+          if (lwcResults.components && typeof lwcResults.components === 'object') {
+            lwcComponents = Object.values(lwcResults.components);
+          }
+          logger.info({ count: lwcComponents.length }, 'Loaded LWC component metadata');
+        } catch (error) {
+          logger.warn({ lwcResultsPath, error }, 'Failed to load LWC results, continuing without LWC component metadata');
+        }
+      } else {
+        logger.warn({ lwcResultsPath }, 'LWC results file not found, continuing without LWC component metadata');
+      }
+
+      // Load Aura component metadata
+      const auraResultsPath = join(options.input, 'aura-results.json');
+      let auraComponents: unknown[] = [];
+
+      if (existsSync(auraResultsPath)) {
+        try {
+          const auraResultsContent = await readFile(auraResultsPath, 'utf-8');
+          const auraResults = JSON.parse(auraResultsContent);
+          // Convert Record<string, AuraComponentDefinition> to array
+          if (auraResults.components && typeof auraResults.components === 'object') {
+            auraComponents = Object.values(auraResults.components);
+          }
+          logger.info({ count: auraComponents.length }, 'Loaded Aura component metadata');
+        } catch (error) {
+          logger.warn({ auraResultsPath, error }, 'Failed to load Aura results, continuing without Aura component metadata');
+        }
+      } else {
+        logger.warn({ auraResultsPath }, 'Aura results file not found, continuing without Aura component metadata');
+      }
+
+      // Load Flow metadata
+      const flowResultsPath = join(options.input, 'parsed-flow-results.json');
+      let flows: unknown[] = [];
+
+      if (existsSync(flowResultsPath)) {
+        try {
+          const flowResultsContent = await readFile(flowResultsPath, 'utf-8');
+          const flowResults = JSON.parse(flowResultsContent);
+          // Convert Record<string, FlowDefinition> to array
+          if (flowResults.flows && typeof flowResults.flows === 'object') {
+            flows = Object.values(flowResults.flows);
+          }
+          logger.info({ count: flows.length }, 'Loaded Flow metadata');
+        } catch (error) {
+          logger.warn({ flowResultsPath, error }, 'Failed to load Flow results, continuing without Flow metadata');
+        }
+      } else {
+        logger.warn({ flowResultsPath }, 'Flow results file not found, continuing without Flow metadata');
+      }
+
+      // Generate page objects
+      const config = {
+        outputDirectory: options.output,
+        templateDirectory: options.templateDir,
+      };
+
+      const result = await generatePageObjects(config, {
+        objects: objects as any[],
+        lwcComponents: lwcComponents as any[],
+        auraComponents: auraComponents as any[],
+        flows: flows as any[],
+      });
+
+      logger.info(
+        {
+          generatedFiles: result.summary.totalFiles,
+          successfulFiles: result.summary.successfulFiles,
+          failedFiles: result.summary.failedFiles,
+          errors: result.summary.totalErrors,
+          warnings: result.summary.totalWarnings,
+          outputDir: options.output,
+        },
+        'Page object generation completed'
+      );
+
+      if (result.errors.length > 0) {
+        logger.warn({ errors: result.errors }, 'Generation completed with errors');
+      }
+      if (result.warnings.length > 0) {
+        logger.warn({ warnings: result.warnings }, 'Generation completed with warnings');
+      }
+    } catch (error) {
+      logger.error({ error }, 'Page object generation failed');
       process.exit(1);
     }
   });

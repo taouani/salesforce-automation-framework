@@ -1,0 +1,159 @@
+/**
+ * Base Page Object class for Salesforce Object pages
+ */
+
+import { Page, Locator } from '@playwright/test';
+import { waitForRecordLoad, waitForSpinnerToDisappear } from '../../utils/wait-utilities.js';
+
+/**
+ * Abstract base class for Salesforce object page objects
+ */
+export abstract class BaseObjectPage {
+  constructor(protected page: Page) {}
+
+  /**
+   * Navigates to object list view
+   */
+  async goToObjectList(objectApiName: string): Promise<void> {
+    const url = `/lightning/o/${objectApiName}/list`;
+    await this.page.goto(url);
+    await waitForRecordLoad(this.page);
+  }
+
+  /**
+   * Navigates to a record detail page
+   */
+  async goToRecord(objectApiName: string, recordId: string): Promise<void> {
+    const url = `/lightning/r/${objectApiName}/${recordId}/view`;
+    await this.page.goto(url);
+    await waitForRecordLoad(this.page);
+  }
+
+  /**
+   * Navigates to record edit page
+   */
+  async goToRecordEdit(objectApiName: string, recordId: string): Promise<void> {
+    const url = `/lightning/r/${objectApiName}/${recordId}/edit`;
+    await this.page.goto(url);
+    await waitForRecordLoad(this.page);
+  }
+
+  /**
+   * Clicks Save button
+   */
+  async clickSave(): Promise<void> {
+    const button = this.page.getByRole('button', { name: /Save/i });
+    await button.waitFor({ state: 'visible' });
+    await button.click();
+    await waitForSpinnerToDisappear(this.page);
+  }
+
+  /**
+   * Clicks Cancel button
+   */
+  async clickCancel(): Promise<void> {
+    const button = this.page.getByRole('button', { name: /Cancel/i });
+    await button.waitFor({ state: 'visible' });
+    await button.click();
+  }
+
+  /**
+   * Clicks Delete button
+   */
+  async clickDelete(): Promise<void> {
+    const button = this.page.getByRole('button', { name: /Delete/i });
+    await button.waitFor({ state: 'visible' });
+    await button.click();
+  }
+
+  /**
+   * Confirms deletion in modal
+   */
+  async confirmDelete(): Promise<void> {
+    const confirmButton = this.page.getByRole('button', { name: /Delete/i }).last();
+    await confirmButton.waitFor({ state: 'visible' });
+    await confirmButton.click();
+    await waitForSpinnerToDisappear(this.page);
+  }
+
+  /**
+   * Fills a field by label
+   */
+  async fillField(fieldLabel: string, value: string): Promise<void> {
+    const field = this.page.getByLabel(fieldLabel);
+    await field.waitFor({ state: 'visible' });
+    await field.fill(value);
+  }
+
+  /**
+   * Gets field value by label
+   */
+  async getFieldValue(fieldLabel: string): Promise<string> {
+    const field = this.page.getByLabel(fieldLabel);
+    await field.waitFor({ state: 'visible' });
+    return await field.inputValue();
+  }
+
+  /**
+   * Waits for modal to appear
+   */
+  async waitForModal(): Promise<void> {
+    await this.page.locator('div[role="dialog"]').waitFor({ state: 'visible' });
+  }
+
+  /**
+   * Closes modal
+   */
+  async closeModal(): Promise<void> {
+    const closeButton = this.page.locator('button[title="Close"]').first();
+    if (await closeButton.isVisible()) {
+      await closeButton.click();
+    }
+  }
+
+  /**
+   * Waits for toast message
+   */
+  async waitForToast(message?: string): Promise<void> {
+    const toast = this.page.locator('div[role="alert"]');
+    await toast.waitFor({ state: 'visible' });
+    if (message) {
+      await this.page.getByText(message).waitFor({ state: 'visible' });
+    }
+  }
+
+  /**
+   * Gets toast message
+   */
+  async getToastMessage(): Promise<string | null> {
+    const toast = this.page.locator('div[role="alert"]').first();
+    if (await toast.isVisible()) {
+      return await toast.textContent();
+    }
+    return null;
+  }
+
+  /**
+   * Waits for spinner to disappear
+   */
+  async waitForSpinner(): Promise<void> {
+    await waitForSpinnerToDisappear(this.page);
+  }
+
+  /**
+   * Checks if spinner is visible
+   */
+  async isSpinnerVisible(): Promise<boolean> {
+    const spinner = this.page.locator('.slds-spinner').first();
+    return await spinner.isVisible();
+  }
+
+  /**
+   * Waits for page to load completely
+   */
+  async waitForPageLoad(): Promise<void> {
+    await waitForSpinnerToDisappear(this.page);
+    await waitForRecordLoad(this.page);
+  }
+}
+
