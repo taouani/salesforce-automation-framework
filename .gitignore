@@ -5,6 +5,14 @@ dist/
 .env
 coverage/
 *.tsbuildinfo
+
+# Generated files
 registry.json
-relationship-graph.json
 parsed-results/
+test-results/
+playwright-report/
+screenshots/
+videos/
+test-temp-*/
+my-test-project/
+relationship-graph.json
