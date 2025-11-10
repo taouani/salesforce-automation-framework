@@ -24,6 +24,8 @@ import { parseAllLWCComponents } from '../parser/lwc-parser-integration.js';
 import { saveParsedLWCResults } from '../parser/lwc-results-persistence.js';
 import { parseAllApexFiles } from '../parser/apex-parser-integration.js';
 import { saveParsedApexResults, saveApexDependencyGraph } from '../parser/apex-results-persistence.js';
+import { parseAllFlowFiles } from '../parser/flow-parser-integration.js';
+import { saveParsedFlowResults } from '../parser/flow-results-persistence.js';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { mkdir } from 'fs/promises';
@@ -440,6 +442,86 @@ program
       );
     } catch (error) {
       logger.error({ error }, 'Apex parsing failed');
+      process.exit(1);
+    }
+  });
+
+// Parse Flow command
+program
+  .command('parse-flow')
+  .description('Parse Salesforce Flow definition files (.flow-meta.xml)')
+  .argument('[path]', 'Path to Salesforce metadata directory (required unless --test-default is used)')
+  .option(
+    '-o, --output <path>',
+    'Output directory for parsed results',
+    './parsed-results'
+  )
+  .option(
+    '-d, --dependencies <path>',
+    'Path to save dependency graph JSON file',
+    './flow-dependency-graph.json'
+  )
+  .option(
+    '-t, --to-object <path>',
+    'Path to save Flow-to-object dependency graph JSON file',
+    './flow-to-object-dependency-graph.json'
+  )
+  .option('-c, --concurrency <number>', 'Concurrency limit for parsing', '10')
+  .option('--test-default', 'Use test default path (for development)')
+  .action(async (pathArg, options) => {
+    try {
+      // Determine path to use
+      const metadataPath = options.testDefault
+        ? getPath(undefined, true)
+        : getPath(pathArg, false);
+
+      // Validate path
+      await validatePath(metadataPath);
+
+      logger.info({ path: metadataPath }, 'Starting Flow file parsing');
+
+      const concurrency = parseInt(options.concurrency, 10);
+
+      // Parse Flow files
+      const parseResult = await parseAllFlowFiles({
+        metadataPath,
+        concurrency,
+      });
+
+      // Ensure output directory exists
+      await mkdir(options.output, { recursive: true });
+
+      // Save results
+      const outputPath = join(options.output, 'parsed-flow-results.json');
+      await saveParsedFlowResults({
+        output: outputPath,
+        results: parseResult.results,
+      });
+
+      // Save dependency graphs
+      await writeFile(
+        options.dependencies,
+        JSON.stringify(parseResult.results.dependencyGraph.toJSON(), null, 2),
+        'utf-8'
+      );
+
+      await writeFile(
+        options.toObject,
+        JSON.stringify(parseResult.results.flowToObjectGraph.toJSON(), null, 2),
+        'utf-8'
+      );
+
+      logger.info(
+        {
+          flows: parseResult.flows.length,
+          errors: parseResult.errors,
+          warnings: parseResult.warnings,
+          outputDir: options.output,
+        },
+        'Flow parsing completed successfully'
+      );
+    } catch (error) {
+      logger.error({ error }, 'Flow parsing failed');
       process.exit(1);
     }
   });

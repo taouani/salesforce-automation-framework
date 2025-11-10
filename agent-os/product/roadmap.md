@@ -44,10 +44,16 @@ This roadmap outlines the phased development plan for the Salesforce Test Automa
 - [x] Map Apex classes to related objects
 
 ### Flow Parser
-- [ ] Parse Flow definition files (.flow-meta.xml)
-- [ ] Extract flow elements (screens, decisions, assignments)
-- [ ] Map flow inputs and outputs
-- [ ] Identify flow entry points and decision paths
+- [x] Parse Flow definition files (.flow-meta.xml)
+- [x] Extract flow elements (screens, decisions, assignments)
+- [x] Map flow inputs and outputs
+- [x] Identify flow entry points and decision paths
+- [x] Extract flow triggers and entry points
+- [x] Extract flow formulas and expressions
+- [x] Handle subflows and build dependency graph
+- [x] Map flows to Salesforce objects
+- [x] Extract flow error handling
+- [x] Extract screen details for Playwright test generation
 
 ### Aura Component Parser
 - [ ] Parse Aura component bundles (.cmp, .js, .css)
