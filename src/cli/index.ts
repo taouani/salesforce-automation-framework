@@ -577,30 +577,33 @@ program
       // Save results
       await saveParsedAuraResults(results, options.output);
 
-      // Save dependency graphs separately if requested
-      if (options.dependencies) {
-        await writeFile(
-          options.dependencies,
-          JSON.stringify(results.auraDependencyGraph.toJSON(), null, 2),
-          'utf-8'
-        );
-      }
+      // Save dependency graphs - if path is relative (starts with ./), make it relative to output directory
+      const dependenciesPath = options.dependencies.startsWith('./')
+        ? join(options.output, options.dependencies.replace(/^\.\//, ''))
+        : options.dependencies;
+      await writeFile(
+        dependenciesPath,
+        JSON.stringify(results.auraDependencyGraph.toJSON(), null, 2),
+        'utf-8'
+      );
 
-      if (options.toObject) {
-        await writeFile(
-          options.toObject,
-          JSON.stringify(results.auraToObjectDependencyGraph.toJSON(), null, 2),
-          'utf-8'
-        );
-      }
+      const toObjectPath = options.toObject.startsWith('./')
+        ? join(options.output, options.toObject.replace(/^\.\//, ''))
+        : options.toObject;
+      await writeFile(
+        toObjectPath,
+        JSON.stringify(results.auraToObjectDependencyGraph.toJSON(), null, 2),
+        'utf-8'
+      );
 
-      if (options.toApex) {
-        await writeFile(
-          options.toApex,
-          JSON.stringify(results.auraToApexDependencyGraph.toJSON(), null, 2),
-          'utf-8'
-        );
-      }
+      const toApexPath = options.toApex.startsWith('./')
+        ? join(options.output, options.toApex.replace(/^\.\//, ''))
+        : options.toApex;
+      await writeFile(
+        toApexPath,
+        JSON.stringify(results.auraToApexDependencyGraph.toJSON(), null, 2),
+        'utf-8'
+      );
 
       logger.info(
         {
