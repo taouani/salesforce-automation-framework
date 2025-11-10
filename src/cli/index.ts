@@ -26,6 +26,8 @@ import { parseAllApexFiles } from '../parser/apex-parser-integration.js';
 import { saveParsedApexResults, saveApexDependencyGraph } from '../parser/apex-results-persistence.js';
 import { parseAllFlowFiles } from '../parser/flow-parser-integration.js';
 import { saveParsedFlowResults } from '../parser/flow-results-persistence.js';
+import { parseAllAuraComponents } from '../parser/aura-parser-integration.js';
+import { saveParsedAuraResults } from '../parser/aura-results-persistence.js';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { mkdir } from 'fs/promises';
@@ -522,6 +524,94 @@ program
       );
     } catch (error) {
       logger.error({ error }, 'Flow parsing failed');
+      process.exit(1);
+    }
+  });
+
+program
+  .command('parse-aura')
+  .description('Parse Salesforce Aura component files (.cmp, .js, .css)')
+  .argument('[path]', 'Path to Salesforce metadata directory (required unless --test-default is used)')
+  .option(
+    '-o, --output <path>',
+    'Output directory for parsed results',
+    './parsed-results'
+  )
+  .option(
+    '-d, --dependencies <path>',
+    'Path to save Aura-to-Aura dependency graph JSON file',
+    './aura-dependency-graph.json'
+  )
+  .option(
+    '-t, --to-object <path>',
+    'Path to save Aura-to-object dependency graph JSON file',
+    './aura-to-object-dependency-graph.json'
+  )
+  .option(
+    '-a, --to-apex <path>',
+    'Path to save Aura-to-Apex dependency graph JSON file',
+    './aura-to-apex-dependency-graph.json'
+  )
+  .option('-c, --concurrency <number>', 'Concurrency limit for parsing', '10')
+  .option('--test-default', 'Use test default path (for development)')
+  .action(async (pathArg, options) => {
+    try {
+      // Determine path to use
+      const metadataPath = options.testDefault
+        ? getPath(undefined, true)
+        : getPath(pathArg, false);
+
+      // Validate path
+      await validatePath(metadataPath);
+
+      logger.info({ path: metadataPath }, 'Starting Aura component parsing');
+
+      const concurrency = parseInt(options.concurrency, 10);
+
+      // Parse Aura components
+      const results = await parseAllAuraComponents(metadataPath, concurrency);
+
+      // Ensure output directory exists
+      await mkdir(options.output, { recursive: true });
+
+      // Save results
+      await saveParsedAuraResults(results, options.output);
+
+      // Save dependency graphs separately if requested
+      if (options.dependencies) {
+        await writeFile(
+          options.dependencies,
+          JSON.stringify(results.auraDependencyGraph.toJSON(), null, 2),
+          'utf-8'
+        );
+      }
+
+      if (options.toObject) {
+        await writeFile(
+          options.toObject,
+          JSON.stringify(results.auraToObjectDependencyGraph.toJSON(), null, 2),
+          'utf-8'
+        );
+      }
+
+      if (options.toApex) {
+        await writeFile(
+          options.toApex,
+          JSON.stringify(results.auraToApexDependencyGraph.toJSON(), null, 2),
+          'utf-8'
+        );
+      }
+
+      logger.info(
+        {
+          components: results.components.size,
+          applications: results.applications.size,
+          outputDir: options.output,
+        },
+        'Aura component parsing completed successfully'
+      );
+    } catch (error) {
+      logger.error({ error }, 'Aura component parsing failed');
       process.exit(1);
     }
   });

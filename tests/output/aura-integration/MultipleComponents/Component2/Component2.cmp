@@ -1,0 +1,4 @@
+<aura:component>
+          <aura:attribute name="data" type="Object" />
+          <c:Component1 value="{!v.data.name}" />
+        </aura:component>

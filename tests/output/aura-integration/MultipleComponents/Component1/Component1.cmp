@@ -1,0 +1,4 @@
+<aura:component>
+          <aura:attribute name="value" type="String" />
+          <div>{!v.value}</div>
+        </aura:component>
