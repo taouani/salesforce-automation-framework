@@ -24,7 +24,9 @@ export async function generateBaseObjectPage(
   try {
     const template = await readTemplate('page-object/base-object-page.hbs');
     const content = renderTemplate(template, { definition });
-    const filePath = join(outputDir, 'pages', 'base', 'base-object-page.ts');
+    // If outputDir already ends with 'pages', don't add it again
+    const baseDir = outputDir.endsWith('pages') || outputDir.endsWith('pages/') ? outputDir : join(outputDir, 'pages');
+    const filePath = join(baseDir, 'base', 'base-object-page.ts');
     await writeGeneratedFile(filePath, content, { format: true, fileType: 'typescript' });
     logger.debug({ filePath }, 'BaseObjectPage class generated');
     return filePath;
@@ -44,7 +46,9 @@ export async function generateBaseLightningPage(
   try {
     const template = await readTemplate('page-object/base-lightning-page.hbs');
     const content = renderTemplate(template, { definition });
-    const filePath = join(outputDir, 'pages', 'base', 'base-lightning-page.ts');
+    // If outputDir already ends with 'pages', don't add it again
+    const baseDir = outputDir.endsWith('pages') || outputDir.endsWith('pages/') ? outputDir : join(outputDir, 'pages');
+    const filePath = join(baseDir, 'base', 'base-lightning-page.ts');
     await writeGeneratedFile(filePath, content, { format: true, fileType: 'typescript' });
     logger.debug({ filePath }, 'BaseLightningPage class generated');
     return filePath;
@@ -64,7 +68,9 @@ export async function generateBaseComponentPage(
   try {
     const template = await readTemplate('page-object/base-component-page.hbs');
     const content = renderTemplate(template, { definition });
-    const filePath = join(outputDir, 'pages', 'base', 'base-component-page.ts');
+    // If outputDir already ends with 'pages', don't add it again
+    const baseDir = outputDir.endsWith('pages') || outputDir.endsWith('pages/') ? outputDir : join(outputDir, 'pages');
+    const filePath = join(baseDir, 'base', 'base-component-page.ts');
     await writeGeneratedFile(filePath, content, { format: true, fileType: 'typescript' });
     logger.debug({ filePath }, 'BaseComponentPage class generated');
     return filePath;
@@ -84,7 +90,9 @@ export async function generateBaseFlowScreen(
   try {
     const template = await readTemplate('page-object/base-flow-screen.hbs');
     const content = renderTemplate(template, { definition });
-    const filePath = join(outputDir, 'pages', 'base', 'base-flow-screen.ts');
+    // If outputDir already ends with 'pages', don't add it again
+    const baseDir = outputDir.endsWith('pages') || outputDir.endsWith('pages/') ? outputDir : join(outputDir, 'pages');
+    const filePath = join(baseDir, 'base', 'base-flow-screen.ts');
     await writeGeneratedFile(filePath, content, { format: true, fileType: 'typescript' });
     logger.debug({ filePath }, 'BaseFlowScreen class generated');
     return filePath;

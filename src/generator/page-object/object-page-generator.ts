@@ -54,14 +54,26 @@ export async function generateObjectPageObject(
   try {
     const pageDefinition = convertObjectToPageDefinition(objectDef);
     const template = await readTemplate('page-object/object-page.hbs');
+    
+    // Check if object has a Name field (standard field on most objects)
+    const hasNameFieldInFields = objectDef.fields.some(field => 
+      field.fullName === 'Name' || field.fullName.toLowerCase() === 'name'
+    );
+    // Most Salesforce objects have a Name field, so we'll add it if it's not in the fields list
+    const hasNameField = true; // Most objects have Name field
+    
     const content = renderTemplate(template, {
       definition: pageDefinition,
       object: objectDef,
+      hasNameField: hasNameField,
+      hasNameFieldInFields: hasNameFieldInFields,
     });
     
     const className = pageDefinition.name;
     const fileName = `${className.charAt(0).toLowerCase() + className.slice(1).replace('Page', '-page')}.ts`;
-    const filePath = join(outputDir, 'pages', 'objects', fileName);
+    // If outputDir already ends with 'pages', don't add it again
+    const baseDir = outputDir.endsWith('pages') || outputDir.endsWith('pages/') ? outputDir : join(outputDir, 'pages');
+    const filePath = join(baseDir, 'objects', fileName);
     
     await writeGeneratedFile(filePath, content, { format: true, fileType: 'typescript' });
     logger.debug({ filePath, objectName: objectDef.fullName }, 'Object page object generated');

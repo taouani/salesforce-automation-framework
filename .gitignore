@@ -16,3 +16,4 @@ videos/
 test-temp-*/
 my-test-project/
 generated-page-objects/
+generated-tests/

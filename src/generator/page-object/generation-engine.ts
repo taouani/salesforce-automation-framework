@@ -37,14 +37,20 @@ export async function generatePageObjects(
   try {
     // Ensure output directory exists
     await mkdir(config.outputDirectory, { recursive: true });
-    await mkdir(join(config.outputDirectory, 'pages'), { recursive: true });
-    await mkdir(join(config.outputDirectory, 'pages', 'base'), { recursive: true });
-    await mkdir(join(config.outputDirectory, 'pages', 'objects'), { recursive: true });
-    await mkdir(join(config.outputDirectory, 'pages', 'lightning'), { recursive: true });
-    await mkdir(join(config.outputDirectory, 'pages', 'components', 'lwc'), { recursive: true });
-    await mkdir(join(config.outputDirectory, 'pages', 'components', 'aura'), { recursive: true });
-    await mkdir(join(config.outputDirectory, 'pages', 'flows'), { recursive: true });
-
+    
+    // Determine base pages directory - if outputDirectory already ends with 'pages', use it directly
+    const pagesBaseDir = config.outputDirectory.endsWith('pages') || config.outputDirectory.endsWith('pages/')
+      ? config.outputDirectory
+      : join(config.outputDirectory, 'pages');
+    
+    await mkdir(pagesBaseDir, { recursive: true });
+    await mkdir(join(pagesBaseDir, 'base'), { recursive: true });
+    await mkdir(join(pagesBaseDir, 'objects'), { recursive: true });
+    await mkdir(join(pagesBaseDir, 'lightning'), { recursive: true });
+    await mkdir(join(pagesBaseDir, 'components', 'lwc'), { recursive: true });
+    await mkdir(join(pagesBaseDir, 'components', 'aura'), { recursive: true });
+    await mkdir(join(pagesBaseDir, 'flows'), { recursive: true });
+    
     // Generate base page object classes
     logger.info('Generating base page object classes...');
     try {
@@ -54,7 +60,7 @@ export async function generatePageObjects(
         locators: [],
         methods: [],
       };
-      const baseObjectPagePath = await generateBaseObjectPage(config.outputDirectory, baseObjectPageDef);
+      const baseObjectPagePath = await generateBaseObjectPage(pagesBaseDir, baseObjectPageDef);
       generatedFiles.push({
         path: baseObjectPagePath,
         content: '', // Content is in the file
@@ -67,7 +73,7 @@ export async function generatePageObjects(
         locators: [],
         methods: [],
       };
-      const baseLightningPagePath = await generateBaseLightningPage(config.outputDirectory, baseLightningPageDef);
+      const baseLightningPagePath = await generateBaseLightningPage(pagesBaseDir, baseLightningPageDef);
       generatedFiles.push({
         path: baseLightningPagePath,
         content: '',
@@ -80,7 +86,7 @@ export async function generatePageObjects(
         locators: [],
         methods: [],
       };
-      const baseComponentPagePath = await generateBaseComponentPage(config.outputDirectory, baseComponentPageDef);
+      const baseComponentPagePath = await generateBaseComponentPage(pagesBaseDir, baseComponentPageDef);
       generatedFiles.push({
         path: baseComponentPagePath,
         content: '',
@@ -93,7 +99,7 @@ export async function generatePageObjects(
         locators: [],
         methods: [],
       };
-      const baseFlowScreenPath = await generateBaseFlowScreen(config.outputDirectory, baseFlowScreenDef);
+      const baseFlowScreenPath = await generateBaseFlowScreen(pagesBaseDir, baseFlowScreenDef);
       generatedFiles.push({
         path: baseFlowScreenPath,
         content: '',
@@ -138,7 +144,7 @@ export async function generatePageObjects(
       try {
         for (const component of metadata.lwcComponents) {
           try {
-            const componentPagePath = await generateLWCComponentPageObject(config.outputDirectory, component);
+            const componentPagePath = await generateLWCComponentPageObject(pagesBaseDir, component);
             generatedFiles.push({
               path: componentPagePath,
               content: '',
@@ -166,7 +172,7 @@ export async function generatePageObjects(
       try {
         for (const component of metadata.auraComponents) {
           try {
-            const componentPagePath = await generateAuraComponentPageObject(config.outputDirectory, component);
+            const componentPagePath = await generateAuraComponentPageObject(pagesBaseDir, component);
             generatedFiles.push({
               path: componentPagePath,
               content: '',
@@ -196,7 +202,7 @@ export async function generatePageObjects(
           if (flow.screens && Array.isArray(flow.screens)) {
             for (const screen of flow.screens) {
               try {
-                const screenPagePath = await generateFlowScreenPageObject(config.outputDirectory, flow.name || flow.apiName || 'Flow', screen);
+                const screenPagePath = await generateFlowScreenPageObject(pagesBaseDir, flow.name || flow.apiName || 'Flow', screen);
                 generatedFiles.push({
                   path: screenPagePath,
                   content: '',

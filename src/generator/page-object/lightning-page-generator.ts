@@ -24,7 +24,9 @@ export async function generateLightningPageObject(
     
     const className = definition.name;
     const fileName = `${className.charAt(0).toLowerCase() + className.slice(1).replace('Page', '-page')}.ts`;
-    const filePath = join(outputDir, 'pages', 'lightning', fileName);
+    // If outputDir already ends with 'pages', don't add it again
+    const baseDir = outputDir.endsWith('pages') || outputDir.endsWith('pages/') ? outputDir : join(outputDir, 'pages');
+    const filePath = join(baseDir, 'lightning', fileName);
     
     await writeGeneratedFile(filePath, content, { format: true, fileType: 'typescript' });
     logger.debug({ filePath, pageName: definition.pageName }, 'Lightning page object generated');
