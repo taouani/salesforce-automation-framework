@@ -434,10 +434,13 @@ program
       const outputPath = join(options.output, 'parsed-apex-results.json');
       await saveParsedApexResults(parseResult.results.toJSON(), outputPath);
 
-      // Save dependency graph
+      // Save dependency graph - if path is relative (starts with ./), make it relative to output directory
+      const dependenciesPath = options.dependencies.startsWith('./')
+        ? join(options.output, options.dependencies.replace(/^\.\//, ''))
+        : options.dependencies;
       await saveApexDependencyGraph(
         parseResult.results.dependencyGraph.toJSON(),
-        options.dependencies
+        dependenciesPath
       );
 
       logger.info(
@@ -674,7 +677,7 @@ program
   )
   .option(
     '-o, --output <path>',
-    'Output directory for generated page objects',
+    'Output directory for generated page objects (page objects will be created in a "pages" subdirectory)',
     './generated-page-objects'
   )
   .option(
@@ -804,5 +807,125 @@ program
     }
   });
 
-program.parse();
+// Generate tests command
+program
+  .command('generate-tests')
+  .description('Generate Playwright test specifications from parsed Salesforce metadata')
+  .argument('[input]', 'Path to parsed metadata results directory (default: ./parsed-results)')
+  .argument('[output]', 'Output directory for generated tests (default: ./generated-tests)')
+  .option(
+    '-i, --input <path>',
+    'Path to parsed metadata results directory (default: ./parsed-results)'
+  )
+  .option(
+    '-o, --output <path>',
+    'Output directory for generated tests (default: ./generated-tests)'
+  )
+  .option(
+    '--auth-approach <approach>',
+    'Authentication approach: helpers, configuredConnection, or both',
+    'both'
+  )
+  .option('--no-fixtures', 'Skip generating test fixtures')
+  .option('--no-test-data', 'Skip generating test data factories')
+  .action(async (inputArg, outputArg, options) => {
+    // Use options if provided, otherwise use positional arguments, otherwise use defaults
+    const inputPath = options.input || inputArg || './parsed-results';
+    const outputPath = options.output || outputArg || './generated-tests';
+    try {
+      const { generateTests } = await import('../generator/test-generation/test-generation-engine.js');
+      const { readFile } = await import('fs/promises');
+      const { join } = await import('path');
+      const { existsSync } = await import('fs');
+      const { mkdir } = await import('fs/promises');
+
+      logger.info({ input: inputPath, output: outputPath }, 'Starting test generation');
+
+      // Ensure output directory exists
+      await mkdir(outputPath, { recursive: true });
+      await mkdir(join(outputPath, 'tests'), { recursive: true });
+      await mkdir(join(outputPath, 'utils'), { recursive: true });
+      await mkdir(join(outputPath, 'fixtures'), { recursive: true });
+
+      // Load parsed metadata
+      const xmlResultsPath = join(inputPath, 'parsed-xml-results.json');
+      let objects: unknown[] = [];
+
+      if (existsSync(xmlResultsPath)) {
+        try {
+          const xmlResultsContent = await readFile(xmlResultsPath, 'utf-8');
+          const xmlResults = JSON.parse(xmlResultsContent);
+          objects = xmlResults.objects || [];
+          logger.info({ count: objects.length }, 'Loaded object metadata');
+        } catch (error) {
+          logger.warn({ xmlResultsPath, error }, 'Failed to load XML results');
+        }
+      }
+
+      // Load relationship graph
+      const relationshipGraphPath = join(inputPath, 'relationship-graph.json');
+      const relationshipMap = new Map<string, Array<{ fieldName: string; type: 'MasterDetail' | 'Lookup'; relatedObject: string }>>();
+      
+      if (existsSync(relationshipGraphPath)) {
+        try {
+          const relationshipGraphContent = await readFile(relationshipGraphPath, 'utf-8');
+          const relationshipGraph = JSON.parse(relationshipGraphContent);
+          // Build relationship map from graph
+          if (relationshipGraph.nodes) {
+            for (const node of relationshipGraph.nodes) {
+              const relationships: Array<{ fieldName: string; type: 'MasterDetail' | 'Lookup'; relatedObject: string }> = [];
+              if (node.relationships) {
+                for (const rel of node.relationships) {
+                  relationships.push({
+                    fieldName: rel.fieldName,
+                    type: rel.type as 'MasterDetail' | 'Lookup',
+                    relatedObject: rel.relatedObject,
+                  });
+                }
+              }
+              relationshipMap.set(node.objectName, relationships);
+            }
+          }
+          logger.info({ count: relationshipMap.size }, 'Loaded relationship graph');
+        } catch (error) {
+          logger.warn({ relationshipGraphPath, error }, 'Failed to load relationship graph');
+        }
+      }
+
+      // Generate tests
+      const result = await generateTests(
+        {
+          objects: objects as any,
+          relationshipMap,
+        },
+        {
+          outputDirectory: outputPath,
+          authApproach: options.authApproach as 'helpers' | 'configuredConnection' | 'both',
+          includeFixtures: options.fixtures !== false,
+          includeTestData: options.testData !== false,
+        }
+      );
+
+      logger.info(
+        {
+          totalFiles: result.summary.totalFiles,
+          successfulFiles: result.summary.successfulFiles,
+          errors: result.summary.totalErrors,
+          warnings: result.summary.totalWarnings,
+        },
+        'Test generation completed'
+      );
+
+      if (result.errors.length > 0) {
+        logger.error({ errors: result.errors }, 'Test generation completed with errors');
+        process.exit(1);
+      }
+    } catch (error) {
+      logger.error({ error }, 'Test generation failed');
+      process.exit(1);
+    }
+  });
+
+// Parse arguments, allowing unknown options to be passed through
+program.parse(process.argv);
 

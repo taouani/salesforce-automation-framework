@@ -12,6 +12,50 @@ import { logger } from '../../utils/logger.js';
 import { join } from 'path';
 
 /**
+ * Maps Apex/Salesforce types to TypeScript types
+ */
+function mapApexTypeToTypeScript(apexType: string): string {
+  const typeMap: Record<string, string> = {
+    'String': 'string',
+    'Integer': 'number',
+    'Double': 'number',
+    'Decimal': 'number',
+    'Long': 'number',
+    'Boolean': 'boolean',
+    'Date': 'Date',
+    'DateTime': 'Date',
+    'List': 'any[]',
+    'Set': 'any[]',
+    'Map': 'Record<string, any>',
+    'Object': 'any',
+    'Id': 'string',
+    'Blob': 'string',
+  };
+  
+  // Handle generic types like List<String>, Map<String, Integer>
+  if (apexType.includes('<')) {
+    const baseType = apexType.split('<')[0].trim();
+    const mappedBase = typeMap[baseType] || 'any';
+    return `${mappedBase}[]`;
+  }
+  
+  // Handle array notation like String[]
+  if (apexType.endsWith('[]')) {
+    const baseType = apexType.slice(0, -2);
+    return `${mapApexTypeToTypeScript(baseType)}[]`;
+  }
+  
+  // Check if it's a mapped type
+  if (typeMap[apexType]) {
+    return typeMap[apexType];
+  }
+  
+  // Custom Salesforce object types (end with __c) or other Apex types should be 'any'
+  // This includes types like PRSCO_Prescription__c, Account, Contact, etc.
+  return 'any';
+}
+
+/**
  * Converts parsed LWC component definition to ComponentPageDefinition
  */
 export function convertLWCToPageDefinition(
@@ -45,10 +89,12 @@ export function convertLWCToPageDefinition(
     locators,
     methods: [],
     properties: componentDef.javascript?.properties?.reduce((acc, prop) => {
-      acc[prop.name] = { type: prop.type || 'any', required: prop.required };
+      // Map Salesforce/Apex types to TypeScript types
+      const tsType = mapApexTypeToTypeScript(prop.type || 'any');
+      acc[prop.name] = { type: tsType, required: prop.required };
       return acc;
     }, {} as Record<string, unknown>) || {},
-    events: componentDef.javascript?.methods?.filter(m => m.name.startsWith('handle')).map(m => m.name) || [],
+    events: [...new Set(componentDef.javascript?.methods?.filter(m => m.name.startsWith('handle')).map(m => m.name) || [])], // Remove duplicates
     nestedComponents: componentDef.html?.elements?.filter(e => e.tagName?.startsWith('c-')).map(e => e.tagName || '') || [],
   };
 }
@@ -70,7 +116,9 @@ export async function generateLWCComponentPageObject(
     
     const className = pageDefinition.name;
     const fileName = `${className.charAt(0).toLowerCase() + className.slice(1).replace('ComponentPage', '-component-page')}.ts`;
-    const filePath = join(outputDir, 'pages', 'components', 'lwc', fileName);
+    // If outputDir already ends with 'pages', don't add it again
+    const baseDir = outputDir.endsWith('pages') || outputDir.endsWith('pages/') ? outputDir : join(outputDir, 'pages');
+    const filePath = join(baseDir, 'components', 'lwc', fileName);
     
     await writeGeneratedFile(filePath, content, { format: true, fileType: 'typescript' });
     logger.debug({ filePath, componentName: componentDef.metadata.name }, 'LWC component page object generated');

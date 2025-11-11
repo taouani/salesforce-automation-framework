@@ -12,6 +12,50 @@ import { logger } from '../../utils/logger.js';
 import { join } from 'path';
 
 /**
+ * Maps Apex/Salesforce types to TypeScript types
+ */
+function mapApexTypeToTypeScript(apexType: string): string {
+  const typeMap: Record<string, string> = {
+    'String': 'string',
+    'Integer': 'number',
+    'Double': 'number',
+    'Decimal': 'number',
+    'Long': 'number',
+    'Boolean': 'boolean',
+    'Date': 'Date',
+    'DateTime': 'Date',
+    'List': 'any[]',
+    'Set': 'any[]',
+    'Map': 'Record<string, any>',
+    'Object': 'any',
+    'Id': 'string',
+    'Blob': 'string',
+  };
+  
+  // Handle generic types like List<String>, Map<String, Integer>
+  if (apexType.includes('<')) {
+    const baseType = apexType.split('<')[0].trim();
+    const mappedBase = typeMap[baseType] || 'any';
+    return `${mappedBase}[]`;
+  }
+  
+  // Handle array notation like String[]
+  if (apexType.endsWith('[]')) {
+    const baseType = apexType.slice(0, -2);
+    return `${mapApexTypeToTypeScript(baseType)}[]`;
+  }
+  
+  // Check if it's a mapped type
+  if (typeMap[apexType]) {
+    return typeMap[apexType];
+  }
+  
+  // Custom Salesforce object types (end with __c) or other Apex types should be 'any'
+  // This includes types like PRSCO_Prescription__c, Account, Contact, etc.
+  return 'any';
+}
+
+/**
  * Converts parsed Aura component definition to ComponentPageDefinition
  */
 export function convertAuraToPageDefinition(
@@ -44,10 +88,12 @@ export function convertAuraToPageDefinition(
     locators,
     methods: [],
     properties: componentDef.markup?.attributes?.reduce((acc, attr) => {
-      acc[attr.name] = { type: attr.type || 'any', required: attr.required };
+      // Map Salesforce/Apex types to TypeScript types
+      const tsType = mapApexTypeToTypeScript(attr.type || 'any');
+      acc[attr.name] = { type: tsType, required: attr.required };
       return acc;
     }, {} as Record<string, unknown>) || {},
-    events: componentDef.markup?.handlers?.map(h => h.name) || [],
+    events: [...new Set(componentDef.markup?.handlers?.map(h => h.name) || [])], // Remove duplicates
     nestedComponents: componentDef.markup?.componentReferences?.map(ref => ref.componentName) || [],
   };
 }
@@ -69,7 +115,9 @@ export async function generateAuraComponentPageObject(
     
     const className = pageDefinition.name;
     const fileName = `${className.charAt(0).toLowerCase() + className.slice(1).replace('ComponentPage', '-component-page')}.ts`;
-    const filePath = join(outputDir, 'pages', 'components', 'aura', fileName);
+    // If outputDir already ends with 'pages', don't add it again
+    const baseDir = outputDir.endsWith('pages') || outputDir.endsWith('pages/') ? outputDir : join(outputDir, 'pages');
+    const filePath = join(baseDir, 'components', 'aura', fileName);
     
     await writeGeneratedFile(filePath, content, { format: true, fileType: 'typescript' });
     logger.debug({ filePath, componentName: componentDef.metadata.name }, 'Aura component page object generated');

@@ -4,7 +4,7 @@
  */
 
 import { Page } from '@playwright/test';
-import { BaseComponentPage } from '../base/base-component-page.js';
+import { BaseComponentPage } from '../../base/base-component-page.js';
 
 /**
  * Page Object class for {{definition.componentName}} Aura component
@@ -26,14 +26,14 @@ export class {{definition.name}} extends BaseComponentPage {
    * Waits for component to be visible
    */
   async waitForComponent(): Promise<void> {
-    await this.waitForComponent(this.componentSelector);
+    await super.waitForComponent(this.componentSelector);
   }
 
   /**
    * Checks if component is visible
    */
   async isComponentVisible(): Promise<boolean> {
-    return await this.isComponentVisible(this.componentSelector);
+    return await super.isComponentVisible(this.componentSelector);
   }
 
   // Attribute methods
@@ -41,23 +41,23 @@ export class {{definition.name}} extends BaseComponentPage {
   /**
    * Sets {{@key}} attribute
    */
-  async set{{@key}}(value: {{#if this.type}}{{this.type}}{{else}}any{{/if}}): Promise<void> {
-    await this.page.evaluate((selector, attr, val) => {
-      const component = document.querySelector(selector);
+  async set{{@key}}(value: {{#if this.type}}{{{this.type}}}{{else}}any{{/if}}): Promise<void> {
+    await this.page.evaluate((args: { selector: string; attr: string; val: any }) => {
+      const component = document.querySelector(args.selector);
       if (component) {
-        component.setAttribute('{{@key}}', String(val));
+        component.setAttribute(args.attr, String(args.val));
       }
-    }, this.componentSelector, '{{@key}}', value);
+    }, { selector: this.componentSelector, attr: '{{@key}}', val: value });
   }
 
   /**
    * Gets {{@key}} attribute value
    */
   async get{{@key}}(): Promise<string | null> {
-    return await this.page.evaluate((selector, attr) => {
-      const component = document.querySelector(selector);
-      return component ? component.getAttribute(attr) : null;
-    }, this.componentSelector, '{{@key}}');
+    return await this.page.evaluate((args: { selector: string; attr: string }) => {
+      const component = document.querySelector(args.selector);
+      return component ? component.getAttribute(args.attr) : null;
+    }, { selector: this.componentSelector, attr: '{{@key}}' });
   }
   {{/each}}
 
@@ -67,13 +67,13 @@ export class {{definition.name}} extends BaseComponentPage {
    * Triggers {{this}} handler
    */
   async trigger{{this}}(): Promise<void> {
-    await this.page.evaluate((selector) => {
-      const component = document.querySelector(selector);
+    await this.page.evaluate((args: { selector: string; eventName: string }) => {
+      const component = document.querySelector(args.selector);
       if (component) {
-        const event = new CustomEvent('{{this}}');
+        const event = new CustomEvent(args.eventName);
         component.dispatchEvent(event);
       }
-    }, this.componentSelector);
+    }, { selector: this.componentSelector, eventName: '{{this}}' });
   }
   {{/each}}
 }

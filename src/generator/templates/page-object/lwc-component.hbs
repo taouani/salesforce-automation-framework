@@ -4,7 +4,7 @@
  */
 
 import { Page } from '@playwright/test';
-import { BaseComponentPage } from '../base/base-component-page.js';
+import { BaseComponentPage } from '../../base/base-component-page.js';
 
 /**
  * Page Object class for {{definition.componentName}} LWC component
@@ -26,14 +26,14 @@ export class {{definition.name}} extends BaseComponentPage {
    * Waits for component to be visible
    */
   async waitForComponent(): Promise<void> {
-    await this.waitForComponent(this.componentSelector);
+    await super.waitForComponent(this.componentSelector);
   }
 
   /**
    * Checks if component is visible
    */
   async isComponentVisible(): Promise<boolean> {
-    return await this.isComponentVisible(this.componentSelector);
+    return await super.isComponentVisible(this.componentSelector);
   }
 
   // Property methods
@@ -41,26 +41,26 @@ export class {{definition.name}} extends BaseComponentPage {
   /**
    * Sets {{@key}} property
    */
-  async set{{@key}}(value: {{#if this.type}}{{this.type}}{{else}}any{{/if}}): Promise<void> {
+  async set{{@key}}(value: {{#if this.type}}{{{this.type}}}{{else}}any{{/if}}): Promise<void> {
     // Implementation depends on component structure
-    await this.page.evaluate((selector, prop, val) => {
-      const component = document.querySelector(selector);
-      if (component && (component as any).{{@key}} !== undefined) {
-        (component as any).{{@key}} = val;
+    await this.page.evaluate((args: { selector: string; prop: string; val: any }) => {
+      const component = document.querySelector(args.selector);
+      if (component && (component as any)[args.prop] !== undefined) {
+        (component as any)[args.prop] = args.val;
       }
-    }, this.componentSelector, '{{@key}}', value);
+    }, { selector: this.componentSelector, prop: '{{@key}}', val: value });
   }
 
   /**
    * Gets {{@key}} property value
    */
-  async get{{@key}}(): Promise<{{#if this.type}}{{this.type}}{{else}}any{{/if}} | null> {
-    return await this.page.evaluate((selector, prop) => {
-      const component = document.querySelector(selector);
-      return component && (component as any).{{@key}} !== undefined
-        ? (component as any).{{@key}}
+  async get{{@key}}(): Promise<{{#if this.type}}{{{this.type}}}{{else}}any{{/if}} | null> {
+    return await this.page.evaluate((args: { selector: string; prop: string }) => {
+      const component = document.querySelector(args.selector);
+      return component && (component as any)[args.prop] !== undefined
+        ? (component as any)[args.prop]
         : null;
-    }, this.componentSelector, '{{@key}}');
+    }, { selector: this.componentSelector, prop: '{{@key}}' });
   }
   {{/each}}
 
@@ -70,12 +70,12 @@ export class {{definition.name}} extends BaseComponentPage {
    * Triggers {{this}} event
    */
   async trigger{{this}}(): Promise<void> {
-    await this.page.evaluate((selector) => {
-      const component = document.querySelector(selector);
+    await this.page.evaluate((args: { selector: string; eventName: string }) => {
+      const component = document.querySelector(args.selector);
       if (component) {
-        component.dispatchEvent(new CustomEvent('{{this}}'));
+        component.dispatchEvent(new CustomEvent(args.eventName));
       }
-    }, this.componentSelector);
+    }, { selector: this.componentSelector, eventName: '{{this}}' });
   }
   {{/each}}
 }

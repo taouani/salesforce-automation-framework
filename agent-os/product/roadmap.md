@@ -85,38 +85,47 @@ This roadmap outlines the phased development plan for the Salesforce Test Automa
 - [x] Integration testing with real Salesforce metadata
 
 ### Test Specification Generator
-- [ ] Generate test files for object CRUD operations
-- [ ] Create tests for validation rules
-- [ ] Generate tests for record types
-- [ ] Create tests for field-level validations
-- [ ] Generate tests for object relationships
+- [x] Generate test files for object CRUD operations
+- [x] Create tests for validation rules
+- [x] Generate tests for record types
+- [x] Create tests for field-level validations
+- [x] Generate tests for object relationships
+- [x] Generate tests for LWC/Aura components
+- [x] Generate tests for Flow execution
+- [x] Generate tests for permission-based scenarios
+- [x] Generate test data factories and helpers
+- [x] Generate Playwright test fixtures
+- [x] CLI integration with `generate-tests` command
+- [x] End-to-end integration testing with real Salesforce metadata
 
 ### Test Data Generator
-- [ ] Integrate faker-js for test data generation
-- [ ] Generate test data based on Salesforce field types
-- [ ] Create data generators that respect validation rules
-- [ ] Generate related records respecting relationships
-- [ ] Create test data factories for common scenarios
+- [x] Generate test data factories using Salesforce REST API
+- [x] Generate test data based on Salesforce field types
+- [x] Create data generators that respect relationships
+- [x] Generate related records respecting relationships
+- [x] Create test data factories for all Salesforce objects
+- [ ] Integrate faker-js for test data generation (future enhancement)
+- [ ] Create data generators that respect validation rules (future enhancement)
 
 ## Phase 4: Advanced Test Scenarios
 
 ### Flow Testing
-- [ ] Generate tests for Flow execution
-- [ ] Create tests for Flow decision paths
-- [ ] Generate tests for Flow screen navigation
-- [ ] Create tests for Flow error handling
+- [x] Generate tests for Flow execution
+- [ ] Create tests for Flow decision paths (basic implementation complete)
+- [ ] Generate tests for Flow screen navigation (basic implementation complete)
+- [ ] Create tests for Flow error handling (basic implementation complete)
 
 ### Permission Testing
-- [ ] Generate tests for profile-based access control
-- [ ] Create tests for permission set scenarios
-- [ ] Generate tests for field-level security
-- [ ] Create tests for object-level permissions
+- [x] Generate tests for profile-based access control
+- [x] Create tests for permission set scenarios
+- [x] Generate tests for field-level security
+- [x] Create tests for object-level permissions
 
 ### Component Testing
-- [ ] Generate component-level tests for LWC
-- [ ] Create tests for Aura component interactions
-- [ ] Generate tests for component properties and events
-- [ ] Create tests for component error states
+- [x] Generate component-level tests for LWC
+- [x] Create tests for Aura component interactions
+- [x] Generate tests for component properties and events
+- [ ] Create tests for component error states (future enhancement)
 
 ### Apex Integration Testing
 - [ ] Generate tests that invoke Apex methods

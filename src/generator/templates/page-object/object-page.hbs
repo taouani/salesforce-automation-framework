@@ -14,10 +14,30 @@ export class {{definition.name}} extends BaseObjectPage {
     super(page);
   }
 
-  // Locators
+  // Common locators
+  readonly recordHeader = this.page.locator('h1.slds-page-header__title, h1[class*="recordHeader"], lightning-formatted-name');
+
+  // Field locators
 {{#each definition.fields}}
   readonly {{this.name}} = this.page.getByLabel('{{this.fieldLabel}}');
 {{/each}}
+{{#if hasNameField}}
+{{#unless hasNameFieldInFields}}
+  // Name field (standard field available on most objects)
+  readonly nameField = this.page.getByLabel('Name');
+{{/unless}}
+{{/if}}
+
+  // Common action methods
+  /**
+   * Clicks Edit button on record detail page
+   */
+  async clickEdit(): Promise<void> {
+    const editButton = this.page.getByRole('button', { name: /Edit/i });
+    await editButton.waitFor({ state: 'visible' });
+    await editButton.click();
+    await this.waitForPageLoad();
+  }
 
   // Navigation methods
   /**
@@ -45,15 +65,15 @@ export class {{definition.name}} extends BaseObjectPage {
   /**
    * Creates a new {{definition.objectName}} record
    */
-  async create(recordData: Record<string, unknown>): Promise<void> {
+  async create(_recordData: Record<string, unknown>): Promise<void> {
     await this.gotoList();
     await this.page.getByRole('button', { name: /New/i }).click();
     await this.waitForPageLoad();
     
     // Fill fields
     {{#each definition.fields}}
-    if (recordData['{{this.fieldName}}'] !== undefined) {
-      await this.{{this.name}}.fill(String(recordData['{{this.fieldName}}']));
+    if (_recordData['{{this.fieldName}}'] !== undefined) {
+      await this.{{this.name}}.fill(String(_recordData['{{this.fieldName}}']));
     }
     {{/each}}
     
@@ -83,14 +103,14 @@ export class {{definition.name}} extends BaseObjectPage {
   /**
    * Updates a {{definition.objectName}} record
    */
-  async update(recordId: string, updates: Record<string, unknown>): Promise<void> {
+  async update(recordId: string, _updates: Record<string, unknown>): Promise<void> {
     await this.gotoRecordEdit(recordId);
     await this.waitForPageLoad();
     
     // Update fields
     {{#each definition.fields}}
-    if (updates['{{this.fieldName}}'] !== undefined) {
-      await this.{{this.name}}.fill(String(updates['{{this.fieldName}}']));
+    if (_updates['{{this.fieldName}}'] !== undefined) {
+      await this.{{this.name}}.fill(String(_updates['{{this.fieldName}}']));
     }
     {{/each}}
     
@@ -124,5 +144,22 @@ export class {{definition.name}} extends BaseObjectPage {
     return await this.{{this.name}}.inputValue();
   }
   {{/each}}
+{{#if hasNameField}}
+{{#unless hasNameFieldInFields}}
+  /**
+   * Fills Name field (standard field)
+   */
+  async fillName(value: string): Promise<void> {
+    await this.nameField.fill(value);
+  }
+
+  /**
+   * Gets Name field value (standard field)
+   */
+  async getName(): Promise<string> {
+    return await this.nameField.inputValue();
+  }
+{{/unless}}
+{{/if}}
 }
 

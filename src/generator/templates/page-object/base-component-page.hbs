@@ -46,7 +46,7 @@ export abstract class BaseComponentPage extends BaseLightningPage {
   /**
    * Waits for component event to fire
    */
-  async waitForComponentEvent(eventName: string): Promise<void> {
+  async waitForComponentEvent(_eventName: string): Promise<void> {
     // Wait for event to be dispatched (implementation depends on component type)
     await this.page.waitForTimeout(500); // Placeholder - actual implementation would listen for custom events
   }

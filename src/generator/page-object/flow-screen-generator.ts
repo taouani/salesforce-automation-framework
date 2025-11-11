@@ -87,7 +87,9 @@ export async function generateFlowScreenPageObject(
     
     const className = pageDefinition.name;
     const fileName = `${className.charAt(0).toLowerCase() + className.slice(1).replace('Page', '-page')}.ts`;
-    const filePath = join(outputDir, 'pages', 'flows', fileName);
+    // If outputDir already ends with 'pages', don't add it again
+    const baseDir = outputDir.endsWith('pages') || outputDir.endsWith('pages/') ? outputDir : join(outputDir, 'pages');
+    const filePath = join(baseDir, 'flows', fileName);
     
     await writeGeneratedFile(filePath, content, { format: true, fileType: 'typescript' });
     logger.debug({ filePath, flowName, screenName: screenDef.screenElement }, 'Flow screen page object generated');

@@ -23,6 +23,12 @@ const prettierConfig: prettier.Options = {
  */
 export async function formatCode(code: string, fileType: 'typescript' | 'json' = 'typescript'): Promise<string> {
   try {
+    // Skip formatting for very large files (over 100KB) to avoid performance issues
+    if (code.length > 100 * 1024) {
+      logger.debug({ fileType, codeLength: code.length }, 'Skipping formatting for large file');
+      return code;
+    }
+    
     logger.debug({ fileType, codeLength: code.length }, 'Formatting code');
     
     const config = fileType === 'json' 
@@ -33,8 +39,13 @@ export async function formatCode(code: string, fileType: 'typescript' | 'json' =
     logger.debug({ formattedLength: formatted.length }, 'Code formatted successfully');
     return formatted;
   } catch (error) {
-    // If formatting fails, return original code with warning
-    logger.warn({ error, fileType }, 'Failed to format code, returning original');
+    // If formatting fails, return original code silently (code is still valid, just not formatted)
+    // Only log at debug level since this is not a critical error
+    logger.debug({ 
+      fileType, 
+      codeLength: code.length,
+      error: error instanceof Error ? error.message : String(error)
+    }, 'Formatting skipped (Prettier parse error - code will be written unformatted)');
     return code;
   }
 }
