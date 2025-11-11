@@ -18,6 +18,7 @@ export interface TestDefinition {
   assertions?: AssertionDefinition[]; // Test assertions
   setup?: string; // Setup code
   teardown?: string; // Teardown code
+  tags?: string[]; // Test tags for filtering (e.g., ['@crud', '@object:Account'])
   [key: string]: unknown;
 }
 
@@ -246,6 +247,7 @@ export interface TestGroupDefinition {
   tests: TestDefinition[]; // Tests in this group
   beforeEach?: string; // beforeEach setup code
   afterEach?: string; // afterEach teardown code
+  tags?: string[]; // Tags for the test group (e.g., ['@crud', '@object:Account'])
   [key: string]: unknown;
 }
 

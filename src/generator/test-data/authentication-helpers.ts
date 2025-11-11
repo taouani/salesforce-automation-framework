@@ -72,7 +72,6 @@ export async function authenticateWithJWT(): Promise<{ accessToken: string; inst
   const clientId = process.env.SALESFORCE_CLIENT_ID;
   const username = process.env.SALESFORCE_USERNAME;
   const jwtKeyFile = process.env.SALESFORCE_JWT_KEY_FILE;
-  const loginUrl = process.env.SALESFORCE_LOGIN_URL || 'https://login.salesforce.com';
 
   if (!clientId || !username || !jwtKeyFile) {
     throw new Error('SALESFORCE_CLIENT_ID, SALESFORCE_USERNAME, and SALESFORCE_JWT_KEY_FILE environment variables are required');
@@ -80,6 +79,7 @@ export async function authenticateWithJWT(): Promise<{ accessToken: string; inst
 
   // JWT authentication requires additional libraries (jsonwebtoken, fs)
   // This is a simplified version - actual implementation would need JWT signing
+  // Note: SALESFORCE_LOGIN_URL will be used when JWT authentication is fully implemented
   throw new Error('JWT authentication requires additional setup. Please use username/password authentication or configured connection.');
 }`,
   };
