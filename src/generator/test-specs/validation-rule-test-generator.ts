@@ -5,6 +5,7 @@
 
 import type { ValidationRuleTestDefinition, TestGroupDefinition } from '../../types/test-generation.js';
 import type { ObjectDefinition, ValidationRule } from '../../types/xml-parsed.js';
+import { generateTestTags } from '../../utils/test-tag-generator.js';
 
 /**
  * Converts validation rules to test definitions
@@ -28,6 +29,7 @@ export function convertValidationRulesToTests(
       objectName: objectDef.fullName,
       testData: {},
       testCase: generatePositiveValidationTestCase(objectDef, rule),
+      tags: generateTestTags('ValidationRule', { objectName: objectDef.fullName }),
       assertions: [
         { type: 'toBeVisible', expected: true, description: 'Record should be saved successfully' },
       ],
@@ -43,6 +45,7 @@ export function convertValidationRulesToTests(
       objectName: objectDef.fullName,
       testData: {},
       testCase: generateNegativeValidationTestCase(objectDef, rule),
+      tags: generateTestTags('ValidationRule', { objectName: objectDef.fullName }),
       assertions: [
         { type: 'toContain', expected: rule.errorMessage, description: 'Validation error should be displayed' },
       ],
@@ -53,7 +56,7 @@ export function convertValidationRulesToTests(
 }
 
 function generatePositiveValidationTestCase(objectDef: ObjectDefinition, rule: ValidationRule): string {
-  return `test('should pass validation rule ${rule.fullName} with valid data', async ({ page, testData }) => {
+  return `test('should pass validation rule ${rule.fullName} with valid data @validation-rule @${objectDef.fullName}', async ({ page, testData }) => {
     // Create record with valid data that should pass validation
     const recordId = await testData.create${objectDef.fullName}({
       Name: 'Valid Test Record',
@@ -82,7 +85,7 @@ function generateNegativeValidationTestCase(objectDef: ObjectDefinition, rule: V
         .replace(/"/g, '\\"')    // Escape double quotes
     : '';
   
-  return `test('should trigger validation rule ${rule.fullName} with invalid data', async ({ page, testData }) => {
+  return `test('should trigger validation rule ${rule.fullName} with invalid data @validation-rule @${objectDef.fullName}', async ({ page, testData }) => {
     // Attempt to create record with invalid data via API (should fail)
     try {
       await testData.create${objectDef.fullName}({
@@ -110,6 +113,7 @@ export function generateValidationRuleTestGroup(
     groupName: `Validation Rules - ${objectDef.fullName}`,
     testType: 'ValidationRule',
     tests,
+    tags: generateTestTags('ValidationRule', { objectName: objectDef.fullName }),
   };
 }
 

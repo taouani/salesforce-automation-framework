@@ -2,7 +2,7 @@
  * Base Page Object class for Salesforce Object pages
  */
 
-import { Page, Locator } from '@playwright/test';
+import { Page } from '@playwright/test';
 import { waitForRecordLoad, waitForSpinnerToDisappear } from '../../utils/wait-utilities.js';
 
 /**
@@ -154,6 +154,17 @@ export abstract class BaseObjectPage {
   async waitForPageLoad(): Promise<void> {
     await waitForSpinnerToDisappear(this.page);
     await waitForRecordLoad(this.page);
+  }
+
+  /**
+   * Clicks on a relationship field to navigate to the related record
+   */
+  async clickRelationship(fieldName: string): Promise<void> {
+    // Relationship fields in Salesforce are typically clickable links
+    const relationshipField = this.page.locator(`a[data-field="${fieldName}"], lightning-formatted-lookup[data-field="${fieldName}"] a, a:has-text("${fieldName}")`).first();
+    await relationshipField.waitFor({ state: 'visible' });
+    await relationshipField.click();
+    await this.waitForPageLoad();
   }
 }
 

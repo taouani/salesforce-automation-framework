@@ -106,26 +106,60 @@ export async function generateTestDataAPIDocs(outputDir: string): Promise<string
 
 ## Overview
 
-Test data factories use Salesforce REST API to create, update, and delete test records efficiently.
+Test data factories use Salesforce REST API to create, update, and delete test records efficiently. These factories are faster than UI-based test data setup and provide better control over test data creation.
 
 ## Factory Functions
 
 Each Salesforce object has a corresponding factory function:
-- \`create{ObjectName}(data)\` - Creates a record
-- \`delete{ObjectName}(recordId)\` - Deletes a record
+
+### Create Functions
+- \`create{ObjectName}(data: Record<string, any>): Promise<string>\` - Creates a record and returns the record ID
+  - Example: \`const accountId = await createAccount({ Name: 'Test Account' });\`
+
+### Delete Functions
+- \`delete{ObjectName}(recordId: string): Promise<void>\` - Deletes a record by ID
+  - Example: \`await deleteAccount(accountId);\`
 
 ## Helper Functions
 
 Helper functions for related records:
-- \`create{ChildObject}For{ParentObject}(parentId, data)\` - Creates related records
+- \`create{ChildObject}For{ParentObject}(parentId: string, data: Record<string, any>): Promise<string>\` - Creates related records
+  - Example: \`const contactId = await createContactForAccount(accountId, { FirstName: 'John', LastName: 'Doe' });\`
 
-## Cleanup
+## Cleanup Functions
 
-Use \`cleanupTestData(recordIds)\` to delete multiple records at once.
+- \`cleanupTestData(recordIds: string[]): Promise<void>\` - Deletes multiple records at once
+  - Example: \`await cleanupTestData([accountId1, accountId2]);\`
 
-## Examples
+## Usage Examples
 
-See the generated \`utils/test-data-helpers.ts\` file for implementation details.
+\`\`\`typescript
+import { createAccount, createContactForAccount, deleteAccount } from './utils/test-data-helpers.js';
+
+// Create test data
+const accountId = await createAccount({
+  Name: 'Test Account',
+  Type: 'Customer',
+});
+
+const contactId = await createContactForAccount(accountId, {
+  FirstName: 'John',
+  LastName: 'Doe',
+  Email: 'john.doe@example.com',
+});
+
+// Cleanup
+await deleteAccount(accountId);
+\`\`\`
+
+## Function Signatures
+
+All factory functions follow this pattern:
+- **Input**: Record data as a plain object with field API names as keys
+- **Output**: Promise resolving to the created record ID (string)
+- **Error Handling**: Functions throw errors if API calls fail
+
+See the generated \`utils/test-data-helpers.ts\` file for complete implementation details.
 `;
 
   // Ensure docs directory exists
@@ -140,17 +174,126 @@ See the generated \`utils/test-data-helpers.ts\` file for implementation details
 }
 
 /**
+ * Generates test execution guide
+ */
+export async function generateTestExecutionGuide(outputDir: string): Promise<string> {
+  const guideContent = `# Test Execution Guide
+
+## Prerequisites
+
+1. **Node.js**: Version 18 or higher
+2. **Playwright**: Installed as a dependency in the generated project
+3. **Salesforce Org**: Access to a Salesforce org for testing
+
+## Environment Setup
+
+1. **Install Dependencies**:
+   \`\`\`bash
+   npm install
+   \`\`\`
+
+2. **Configure Authentication**:
+   - Copy \`.env.example\` to \`.env\`
+   - Fill in your Salesforce credentials:
+     \`\`\`
+     SALESFORCE_USERNAME=your-username
+     SALESFORCE_PASSWORD=your-password
+     SALESFORCE_SECURITY_TOKEN=your-token
+     SALESFORCE_LOGIN_URL=https://login.salesforce.com
+     \`\`\`
+
+3. **Install Playwright Browsers**:
+   \`\`\`bash
+   npx playwright install
+   \`\`\`
+
+## Running Tests
+
+### Run All Tests
+\`\`\`bash
+npx playwright test
+\`\`\`
+
+### Run Tests by Tag
+\`\`\`bash
+# Run only CRUD tests
+npx playwright test --grep @crud
+
+# Run tests for a specific object
+npx playwright test --grep @Account
+
+# Run validation rule tests
+npx playwright test --grep @validation-rule
+\`\`\`
+
+### Run Tests in UI Mode
+\`\`\`bash
+npx playwright test --ui
+\`\`\`
+
+### Run Tests in Debug Mode
+\`\`\`bash
+npx playwright test --debug
+\`\`\`
+
+### Run Specific Test File
+\`\`\`bash
+npx playwright test Tests/Objects/Account/account.spec.ts
+\`\`\`
+
+## Test Configuration
+
+The \`playwright.config.ts\` file contains test configuration:
+- **Base URL**: Configured to your Salesforce org
+- **Timeout**: Default test timeout settings
+- **Retries**: Number of retries for failed tests
+- **Reporters**: Test report configuration
+
+## Test Data Management
+
+- Test data is created using Salesforce REST API (faster than UI)
+- Test data is automatically cleaned up after tests (if configured)
+- Use test data factories from \`utils/test-data-helpers.ts\` for creating test records
+
+## Troubleshooting
+
+### Authentication Errors
+- Verify your \`.env\` file has correct credentials
+- Check that your security token is valid
+- Ensure your org URL is correct
+
+### Test Failures
+- Check browser console for errors
+- Verify test data was created correctly
+- Check Salesforce org permissions
+
+### Timeout Errors
+- Increase timeout in \`playwright.config.ts\`
+- Check network connectivity
+- Verify Salesforce org is accessible
+`;
+
+  const guidePath = join(outputDir, 'docs', 'test-execution-guide.md');
+  await mkdir(join(outputDir, 'docs'), { recursive: true });
+  await writeFile(guidePath, guideContent, 'utf-8');
+  logger.info({ guidePath }, 'Generated test execution guide');
+  
+  return guidePath;
+}
+
+/**
  * Generates all documentation files
  */
 export async function generateAllDocumentation(
   outputDir: string,
   projectName?: string
-): Promise<{ readmePath: string; apiDocsPath: string }> {
+): Promise<{ readmePath: string; apiDocsPath: string; executionGuidePath: string }> {
   const readmePath = await generateTestProjectREADME(outputDir, projectName);
   const apiDocsPath = await generateTestDataAPIDocs(outputDir);
+  const executionGuidePath = await generateTestExecutionGuide(outputDir);
   
   logger.info({ outputDir }, 'Generated all documentation');
   
-  return { readmePath, apiDocsPath };
+  return { readmePath, apiDocsPath, executionGuidePath };
 }
 

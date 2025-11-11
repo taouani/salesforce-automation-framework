@@ -892,10 +892,73 @@ program
         }
       }
 
+      // Load LWC component metadata
+      const lwcResultsPath = join(inputPath, 'parsed-lwc-results.json');
+      let lwcComponents: unknown[] = [];
+      if (existsSync(lwcResultsPath)) {
+        try {
+          const lwcResultsContent = await readFile(lwcResultsPath, 'utf-8');
+          const lwcResults = JSON.parse(lwcResultsContent);
+          if (lwcResults.components && typeof lwcResults.components === 'object') {
+            // Convert object to array, preserving component name as 'name' property
+            lwcComponents = Object.entries(lwcResults.components).map(([name, component]: [string, any]) => ({
+              ...component,
+              name: component.name || component.metadata?.name || name,
+            }));
+          }
+          logger.info({ count: lwcComponents.length }, 'Loaded LWC component metadata');
+        } catch (error) {
+          logger.warn({ lwcResultsPath, error }, 'Failed to load LWC results');
+        }
+      }
+
+      // Load Aura component metadata
+      const auraResultsPath = join(inputPath, 'aura-results.json');
+      let auraComponents: unknown[] = [];
+      if (existsSync(auraResultsPath)) {
+        try {
+          const auraResultsContent = await readFile(auraResultsPath, 'utf-8');
+          const auraResults = JSON.parse(auraResultsContent);
+          if (auraResults.components && typeof auraResults.components === 'object') {
+            auraComponents = Object.values(auraResults.components);
+          }
+          logger.info({ count: auraComponents.length }, 'Loaded Aura component metadata');
+        } catch (error) {
+          logger.warn({ auraResultsPath, error }, 'Failed to load Aura results');
+        }
+      }
+
+      // Load Flow metadata
+      const flowResultsPath = join(inputPath, 'parsed-flow-results.json');
+      let flows: unknown[] = [];
+      if (existsSync(flowResultsPath)) {
+        try {
+          const flowResultsContent = await readFile(flowResultsPath, 'utf-8');
+          const flowResults = JSON.parse(flowResultsContent);
+          // Handle both array and object formats
+          if (Array.isArray(flowResults.flows)) {
+            flows = flowResults.flows;
+          } else if (flowResults.flows && typeof flowResults.flows === 'object' && !Array.isArray(flowResults.flows)) {
+            // Convert object to array
+            flows = Object.values(flowResults.flows);
+          } else if (Array.isArray(flowResults)) {
+            flows = flowResults;
+          } else if (typeof flowResults === 'object' && flowResults !== null) {
+            flows = Object.values(flowResults);
+          }
+          logger.info({ count: flows.length }, 'Loaded Flow metadata');
+        } catch (error) {
+          logger.warn({ flowResultsPath, error }, 'Failed to load Flow results');
+        }
+      }
+
       // Generate tests
       const result = await generateTests(
         {
           objects: objects as any,
+          lwcComponents: lwcComponents as any,
+          auraComponents: auraComponents as any,
+          flows: flows as any,
           relationshipMap,
         },
         {

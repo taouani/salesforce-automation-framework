@@ -4,6 +4,7 @@
  */
 
 import type { PermissionTestDefinition, TestGroupDefinition } from '../../types/test-generation.js';
+import { generateTestTags } from '../../utils/test-tag-generator.js';
 
 export function convertPermissionsToTests(
   profileName: string,
@@ -17,11 +18,12 @@ export function convertPermissionsToTests(
     testScenario: 'objectLevel',
     objectName,
     testCase: generatePermissionTestCase(profileName, objectName),
+    tags: generateTestTags('Permission', { objectName }),
   }];
 }
 
 function generatePermissionTestCase(profileName: string, objectName: string): string {
-  return `test('should verify ${profileName} permissions for ${objectName}', async ({ page }) => {
+  return `test('should verify ${profileName} permissions for ${objectName} @permission @${objectName}', async ({ page }) => {
     // Login as user with ${profileName} profile
     // Navigate to ${objectName}
     // Verify access based on permissions
@@ -40,6 +42,7 @@ export function generatePermissionTestGroup(
     groupName: `Permission Tests - ${profileName} - ${objectName}`,
     testType: 'Permission',
     tests,
+    tags: generateTestTags('Permission', { objectName }),
   };
 }
 

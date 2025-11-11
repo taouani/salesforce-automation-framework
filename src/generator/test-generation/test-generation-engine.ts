@@ -4,6 +4,7 @@
  */
 
 import { join } from 'path';
+import { mkdir } from 'fs/promises';
 import { logger } from '../../utils/logger.js';
 import { renderTemplate } from '../template-engine.js';
 import { readTemplate } from '../template-loader.js';
@@ -23,11 +24,15 @@ import { generateValidationRuleTestGroup } from '../test-specs/validation-rule-t
 import { generateRecordTypeTestGroup } from '../test-specs/record-type-test-generator.js';
 import { generateFieldValidationTestGroup } from '../test-specs/field-validation-test-generator.js';
 import { generateRelationshipTestGroup } from '../test-specs/relationship-test-generator.js';
+import { generateComponentTestGroup } from '../test-specs/component-test-generator.js';
+import { generateFlowTestGroup } from '../test-specs/flow-test-generator.js';
 import { generateTestDataUtilitiesFile } from '../test-data/test-data-utilities-generator.js';
 import { generateTestFixturesFile } from '../test-fixtures/test-fixtures-generator.js';
 import { generateAuthenticationConfig } from '../test-data/authentication-config-generator.js';
 import { generateSalesforceAPIClientFile } from '../test-data/salesforce-api-client-generator.js';
 import { generateAllDocumentation } from './documentation-generator.js';
+import { generatePackageJson, generateTypeScriptConfig, generatePlaywrightConfig } from '../config-generators.js';
+import { generateAllUtilities } from '../utility-generators.js';
 
 export interface TestGenerationMetadata {
   objects?: ObjectDefinition[];
@@ -59,6 +64,18 @@ export async function generateTests(
 
   try {
     logger.info({ outputDirectory: options.outputDirectory }, 'Starting test generation');
+
+    // Generate project configuration files (package.json, tsconfig.json, playwright.config.ts)
+    try {
+      await generatePackageJson(join(options.outputDirectory, 'package.json'), 'salesforce-test-project');
+      await generateTypeScriptConfig(join(options.outputDirectory, 'tsconfig.json'));
+      await generatePlaywrightConfig(join(options.outputDirectory, 'playwright.config.ts'));
+      // Generate utility files (wait-utilities, etc.)
+      await generateAllUtilities(options.outputDirectory);
+      logger.info({ outputDirectory: options.outputDirectory }, 'Generated project configuration files');
+    } catch (error) {
+      warnings.push(`Failed to generate project configuration: ${error instanceof Error ? error.message : String(error)}`);
+    }
 
     // Generate test data utilities
     if (options.includeTestData !== false && metadata.objects) {
@@ -135,6 +152,72 @@ export async function generateTests(
       }
     }
 
+    // Generate test files for LWC components
+    if (metadata.lwcComponents && Array.isArray(metadata.lwcComponents)) {
+      for (const componentDef of metadata.lwcComponents) {
+        try {
+          const testFile = await generateComponentTestFile(componentDef, 'LWC', options);
+          generatedFiles.push({
+            path: testFile.path,
+            content: testFile.content,
+            type: 'test',
+            componentName: String(componentDef.name || 'Unknown'),
+          });
+        } catch (error) {
+          errors.push({
+            file: String(componentDef.name || 'Unknown'),
+            message: `Failed to generate LWC component test file: ${error instanceof Error ? error.message : String(error)}`,
+            type: 'generation',
+            cause: error instanceof Error ? error : undefined,
+          });
+        }
+      }
+    }
+
+    // Generate test files for Aura components
+    if (metadata.auraComponents && Array.isArray(metadata.auraComponents)) {
+      for (const componentDef of metadata.auraComponents) {
+        try {
+          const testFile = await generateComponentTestFile(componentDef, 'Aura', options);
+          generatedFiles.push({
+            path: testFile.path,
+            content: testFile.content,
+            type: 'test',
+            componentName: String(componentDef.metadata?.name || 'Unknown'),
+          });
+        } catch (error) {
+          errors.push({
+            file: String(componentDef.metadata?.name || 'Unknown'),
+            message: `Failed to generate Aura component test file: ${error instanceof Error ? error.message : String(error)}`,
+            type: 'generation',
+            cause: error instanceof Error ? error : undefined,
+          });
+        }
+      }
+    }
+
+    // Generate test files for flows
+    if (metadata.flows && Array.isArray(metadata.flows)) {
+      for (const flowDef of metadata.flows) {
+        try {
+          const testFile = await generateFlowTestFile(flowDef, options);
+          generatedFiles.push({
+            path: testFile.path,
+            content: testFile.content,
+            type: 'test',
+            flowName: String(flowDef.fullName || 'Unknown'),
+          });
+        } catch (error) {
+          errors.push({
+            file: String(flowDef.fullName || 'Unknown'),
+            message: `Failed to generate flow test file: ${error instanceof Error ? error.message : String(error)}`,
+            type: 'generation',
+            cause: error instanceof Error ? error : undefined,
+          });
+        }
+      }
+    }
+
     // Generate documentation
     try {
       await generateAllDocumentation(options.outputDirectory);
@@ -161,7 +244,9 @@ export async function generateTests(
       summary,
     };
   } catch (error) {
-    logger.error({ error }, 'Test generation failed');
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    logger.error({ error: errorMessage, stack: errorStack }, 'Test generation failed');
     throw error;
   }
 }
@@ -195,12 +280,21 @@ async function generateObjectTestFile(
   }
 
   // Generate relationship tests
+  const relatedPageObjects: Set<string> = new Set();
   if (objectDef.relationships && objectDef.relationships.length > 0) {
     // Create a set of available object names for filtering relationships
     const availableObjects: Set<string> | undefined = metadata.objects && Array.isArray(metadata.objects)
       ? new Set(metadata.objects.map((obj: any) => String(obj.fullName || '')))
       : undefined;
-    testGroups.push(generateRelationshipTestGroup(objectDef, objectDef.relationships, availableObjects));
+    const relationshipTestGroup = generateRelationshipTestGroup(objectDef, objectDef.relationships, availableObjects);
+    testGroups.push(relationshipTestGroup);
+    
+    // Collect all related page objects used in relationship tests
+    for (const relationship of objectDef.relationships) {
+      if (availableObjects && availableObjects.has(relationship.relatedObject)) {
+        relatedPageObjects.add(relationship.relatedObject);
+      }
+    }
   }
 
   // Render template
@@ -208,15 +302,102 @@ async function generateObjectTestFile(
   // Generate page object file name (e.g., AccountPage -> account-page)
   const pageObjectClassName = `${objectDef.fullName}Page`;
   const pageObjectFileName = `${pageObjectClassName.charAt(0).toLowerCase() + pageObjectClassName.slice(1).replace('Page', '-page')}`;
+  
+  // Generate additional imports for related page objects (exclude the main object)
+  const additionalImports: Array<{ className: string; fileName: string }> = [];
+  for (const relatedObject of relatedPageObjects) {
+    // Don't import the main object's page object again
+    if (relatedObject !== objectDef.fullName) {
+      const relatedClassName = `${relatedObject}Page`;
+      const relatedFileName = `${relatedClassName.charAt(0).toLowerCase() + relatedClassName.slice(1).replace('Page', '-page')}`;
+      additionalImports.push({ className: relatedClassName, fileName: relatedFileName });
+    }
+  }
+  
   const content = renderTemplate(template, {
     objectName: objectDef.fullName,
     pageObjectName: pageObjectClassName,
     pageObjectFileName: pageObjectFileName,
     pageObjectImport: true,
+    additionalImports,
     testGroups,
+    relativePath: '../../../', // Tests/Objects/ObjectName/ -> 3 levels up
   });
 
-  const filePath = join(options.outputDirectory, 'tests', `${objectDef.fullName.toLowerCase()}.spec.ts`);
+  // Organize tests by object: Tests/Objects/ObjectName/object-name.spec.ts
+  const objectTestDir = join(options.outputDirectory, 'Tests', 'Objects', objectDef.fullName);
+  await mkdir(objectTestDir, { recursive: true });
+  const filePath = join(objectTestDir, `${objectDef.fullName.toLowerCase()}.spec.ts`);
+  await writeGeneratedFile(filePath, content, { format: true, fileType: 'typescript' });
+
+  return { path: filePath, content };
+}
+
+/**
+ * Generates a test file for a component (LWC or Aura)
+ */
+async function generateComponentTestFile(
+  componentDef: LWCComponentDefinition | AuraComponentDefinition,
+  componentType: 'LWC' | 'Aura',
+  options: TestGenerationOptions
+): Promise<{ path: string; content: string }> {
+  const componentName = componentType === 'LWC' 
+    ? String((componentDef as LWCComponentDefinition).name || 'Unknown')
+    : String((componentDef as AuraComponentDefinition).metadata?.name || 'Unknown');
+  
+  const testGroup = generateComponentTestGroup(componentName, componentType);
+  
+  // Render template
+  const template = await readTemplate('test/object-test.hbs');
+  const content = renderTemplate(template, {
+    objectName: componentName,
+    pageObjectName: `${componentName}ComponentPage`,
+    pageObjectFileName: `${componentName.toLowerCase()}-component-page`,
+    pageObjectImport: false,
+    testGroups: [testGroup],
+    relativePath: '../../../', // tests/Components/lwc/ or tests/Components/aura/ -> 3 levels up to root
+  });
+
+  // Organize tests by component type: tests/Components/aura/ or tests/Components/lwc/
+  const componentTestDir = join(options.outputDirectory, 'tests', 'Components', componentType.toLowerCase());
+  await mkdir(componentTestDir, { recursive: true });
+  const filePath = join(componentTestDir, `${componentName.toLowerCase()}.spec.ts`);
+  await writeGeneratedFile(filePath, content, { format: true, fileType: 'typescript' });
+
+  return { path: filePath, content };
+}
+
+/**
+ * Generates a test file for a flow
+ */
+async function generateFlowTestFile(
+  flowDef: FlowDefinition,
+  options: TestGenerationOptions
+): Promise<{ path: string; content: string }> {
+  // Try fullName, then name, then apiName
+  const flowName = String(
+    flowDef.fullName || 
+    flowDef.name || 
+    (flowDef as any).apiName || 
+    'Unknown'
+  );
+  const testGroup = generateFlowTestGroup(flowDef);
+  
+  // Render template
+  const template = await readTemplate('test/object-test.hbs');
+  const content = renderTemplate(template, {
+    objectName: flowName,
+    pageObjectName: `${flowName}FlowPage`,
+    pageObjectFileName: `${flowName.toLowerCase()}-flow-page`,
+    pageObjectImport: false,
+    testGroups: [testGroup],
+    relativePath: '../../../', // Tests/flows/FlowName/ -> 3 levels up
+  });
+
+  // Organize tests by flow: tests/flows/FlowName/flow-name.spec.ts
+  const flowTestDir = join(options.outputDirectory, 'tests', 'flows', flowName);
+  await mkdir(flowTestDir, { recursive: true });
+  const filePath = join(flowTestDir, `${flowName.toLowerCase()}.spec.ts`);
   await writeGeneratedFile(filePath, content, { format: true, fileType: 'typescript' });
 
   return { path: filePath, content };

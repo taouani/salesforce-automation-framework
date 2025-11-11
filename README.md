@@ -6,6 +6,22 @@ A test automation framework for Salesforce solutions that generates Playwright t
 
 This framework automatically parses Salesforce metadata repositories and generates comprehensive Playwright test suites with TypeScript, following Page Object Model patterns and including realistic test data generation.
 
+### Features
+
+- **Metadata Parsing**: Parse Salesforce XML, Apex, LWC, Aura, and Flow metadata
+- **Page Object Generation**: Generate TypeScript Page Object Model classes for Salesforce UI elements
+- **Test Specification Generation**: Generate comprehensive Playwright test suites including:
+  - CRUD operation tests
+  - Validation rule tests
+  - Record type tests
+  - Field validation tests
+  - Relationship tests
+  - Component tests (LWC/Aura)
+  - Flow execution tests
+  - Permission-based tests
+- **Test Data Factories**: Generate test data factories using Salesforce REST API
+- **Test Fixtures**: Generate Playwright test fixtures for authentication and test data
+
 ## Project Structure
 
 ```
@@ -57,6 +73,57 @@ npm test
 ```bash
 npm run type-check
 ```
+
+## Usage
+
+### Parse Salesforce Metadata
+
+```bash
+# Parse all metadata types
+npm run dev parse-all -i ./salesforce-metadata -o ./parsed-results
+
+# Parse specific metadata types
+npm run dev parse-xml -i ./salesforce-metadata -o ./parsed-results
+npm run dev parse-apex -i ./salesforce-metadata -o ./parsed-results
+npm run dev parse-lwc -i ./salesforce-metadata -o ./parsed-results
+npm run dev parse-aura -i ./salesforce-metadata -o ./parsed-results
+npm run dev parse-flows -i ./salesforce-metadata -o ./parsed-results
+```
+
+### Generate Page Objects
+
+```bash
+# Generate page objects from parsed metadata
+npm run dev generate-page-objects -i ./parsed-results -o ./my-test-project
+```
+
+### Generate Test Specifications
+
+```bash
+# Generate test specifications from parsed metadata
+npm run dev generate-tests -i ./parsed-results -o ./my-test-project
+
+# With options
+npm run dev generate-tests -i ./parsed-results -o ./my-test-project --auth-approach helpers --no-fixtures
+```
+
+#### Test Generation Options
+
+- `-i, --input <path>`: Path to parsed metadata results directory (default: `./parsed-results`)
+- `-o, --output <path>`: Output directory for generated tests (default: `./generated-tests`)
+- `--auth-approach <approach>`: Authentication approach: `helpers`, `configuredConnection`, or `both` (default: `both`)
+- `--no-fixtures`: Skip generating test fixtures
+- `--no-test-data`: Skip generating test data factories
+
+### Run Generated Tests
+
+```bash
+cd my-test-project
+npm install
+npx playwright test
+```
+
+For more information on running tests, see the generated `docs/test-execution-guide.md` in your test project.
 
 ## License
 
