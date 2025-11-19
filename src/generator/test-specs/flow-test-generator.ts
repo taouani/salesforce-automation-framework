@@ -112,7 +112,7 @@ function generateFlowDecisionPathTestCase(flowName: string, decisionPaths: FlowD
     // Set up test data to trigger this decision path
     ${path.criteria ? `// Criteria: ${criteria}` : '// Default path'}
     // Verify flow follows expected path based on decision outcome
-    ${path.outcomes && path.outcomes.length > 0 ? path.outcomes.map((outcome, outcomeIndex) => {
+    ${path.outcomes && path.outcomes.length > 0 ? path.outcomes.map((outcome) => {
       const outcomeType = outcome.outcomeType || 'Default';
       const outcomeLabel = outcome.label || outcomeType;
       return `// Test ${outcomeType} outcome: ${outcomeLabel}

@@ -104,7 +104,6 @@ function generateFormatValidationTestCase(objectDef: ObjectDefinition, field: Fi
   const pageObjectName = `${objectName}Page`;
   const pageVar = `${objectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_fv_${testIndex}`;
   const invalidValue = getInvalidFormatValue(field.type);
-  const fieldLabel = field.label || field.fullName;
   
   return `test('should validate ${field.type.toLowerCase()} format for field ${field.fullName} @field-validation @${objectDef.fullName}', async ({ page, testData }) => {
     // Attempt to create record with invalid ${field.type.toLowerCase()} format
@@ -139,7 +138,6 @@ function generateLengthConstraintTestCase(objectDef: ObjectDefinition, field: Fi
   const pageVar = `${objectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_fv_${testIndex}`;
   const maxLength = field.length || 255;
   const invalidValue = 'x'.repeat(maxLength + 1); // Exceeds max length
-  const fieldLabel = field.label || field.fullName;
   
   return `test('should validate length constraint for field ${field.fullName} @field-validation @${objectDef.fullName}', async ({ page, testData }) => {
     // Attempt to create record with value exceeding max length (${maxLength} characters)
@@ -173,7 +171,6 @@ function generatePicklistRestrictionTestCase(objectDef: ObjectDefinition, field:
   const pageObjectName = `${objectName}Page`;
   const pageVar = `${objectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_fv_${testIndex}`;
   const invalidValue = 'InvalidPicklistValue';
-  const fieldLabel = field.label || field.fullName;
   
   return `test('should validate picklist values for field ${field.fullName} @field-validation @${objectDef.fullName}', async ({ page, testData }) => {
     // Attempt to create record with invalid picklist value

@@ -78,11 +78,7 @@ export function convertRelationshipsToTests(
   return tests;
 }
 
-function generateRelationshipTestCase(objectDef: ObjectDefinition, relationship: Relationship, testIndex: string | number): string {
-  // Generate unique variable name to avoid redeclaration
-  const pageVar = `${objectDef.fullName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_${testIndex}`;
-  const pageObjectName = `${objectDef.fullName}Page`;
-  
+function generateRelationshipTestCase(objectDef: ObjectDefinition, relationship: Relationship, _testIndex: string | number): string {
   return `test('should populate relationship ${relationship.fieldName} @relationship @${objectDef.fullName}', async ({ page, testData }) => {
     // Create parent record
     const parentId = await testData.create${relationship.relatedObject}({
@@ -146,7 +142,6 @@ function generateCascadeDeleteTestCase(objectDef: ObjectDefinition, relationship
 function generateRelationshipUpdateTestCase(objectDef: ObjectDefinition, relationship: Relationship, testIndex: string | number): string {
   const objectName = objectDef.fullName;
   const pageObjectName = `${objectName}Page`;
-  const isMasterDetail = relationship.type === 'MasterDetail';
   
   // Generate unique variable name to avoid redeclaration
   const childPageVar = `${objectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_${testIndex}`;
@@ -192,7 +187,6 @@ function generateRelationshipUpdateTestCase(objectDef: ObjectDefinition, relatio
 function generateRelationshipNavigationTestCase(objectDef: ObjectDefinition, relationship: Relationship, testIndex: string | number): string {
   const objectName = objectDef.fullName;
   const pageObjectName = `${objectName}Page`;
-  const isMasterDetail = relationship.type === 'MasterDetail';
   const relatedObjectName = relationship.relatedObject;
   const relatedPageObjectName = `${relatedObjectName}Page`;
   

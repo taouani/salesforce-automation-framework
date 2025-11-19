@@ -132,10 +132,10 @@ This roadmap outlines the phased development plan for the Salesforce Test Automa
 - [x] Create tests for component error states
 
 ### Apex Integration Testing
-- [ ] Generate tests that invoke Apex methods
-- [ ] Create tests for trigger execution scenarios
-- [ ] Generate tests for Apex error handling
-- [ ] Create tests for bulk operations
+- [x] ~~Generate tests that invoke Apex methods~~ (Descoped - focus on UI testing, not direct Apex method invocation)
+- [x] ~~Create tests for trigger execution scenarios~~ (Descoped - trigger testing covered through UI interactions)
+- [x] ~~Generate tests for Apex error handling~~ (Descoped - Apex parser informs UI tests, not direct Apex testing)
+- [x] ~~Create tests for bulk operations~~ (Descoped - Apex parser is supporting tool, not test generation target)
 
 ## Phase 5: Enhancement & Optimization
 
