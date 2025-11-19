@@ -33,6 +33,13 @@ import { generateSalesforceAPIClientFile } from '../test-data/salesforce-api-cli
 import { generateAllDocumentation } from './documentation-generator.js';
 import { generatePackageJson, generateTypeScriptConfig, generatePlaywrightConfig } from '../config-generators.js';
 import { generateAllUtilities } from '../utility-generators.js';
+import { 
+  generatePageObjectClassName, 
+  generateFileNameFromClassName, 
+  sanitizeClassName,
+  generateTestDataFactoryFunctionName,
+  generateDeleteFunctionName
+} from '../name-sanitizer.js';
 
 export interface TestGenerationMetadata {
   objects?: ObjectDefinition[];
@@ -261,55 +268,88 @@ async function generateObjectTestFile(
 ): Promise<{ path: string; content: string }> {
   const testGroups: TestGroupDefinition[] = [];
 
+  // Generate sanitized names for consistent usage
+  const pageObjectClassName = generatePageObjectClassName(objectDef.fullName);
+  const createFunctionName = generateTestDataFactoryFunctionName(objectDef.fullName);
+  const deleteFunctionName = generateDeleteFunctionName(objectDef.fullName);
+  
+  const sanitizedNames = {
+    pageObjectClassName,
+    createFunctionName,
+    deleteFunctionName,
+  };
+  
   // Generate CRUD tests
-  testGroups.push(generateCRUDTestGroup(objectDef));
+  testGroups.push(generateCRUDTestGroup(objectDef, sanitizedNames));
 
   // Generate validation rule tests
   if (objectDef.validationRules && objectDef.validationRules.length > 0) {
-    testGroups.push(generateValidationRuleTestGroup(objectDef, objectDef.validationRules));
+    testGroups.push(generateValidationRuleTestGroup(objectDef, objectDef.validationRules, sanitizedNames));
   }
 
   // Generate record type tests
   if (objectDef.recordTypes && objectDef.recordTypes.length > 0) {
-    testGroups.push(generateRecordTypeTestGroup(objectDef, objectDef.recordTypes));
+    testGroups.push(generateRecordTypeTestGroup(objectDef, objectDef.recordTypes, sanitizedNames));
   }
 
   // Generate field validation tests
   if (objectDef.fields && objectDef.fields.length > 0) {
-    testGroups.push(generateFieldValidationTestGroup(objectDef, objectDef.fields));
+    testGroups.push(generateFieldValidationTestGroup(objectDef, objectDef.fields, sanitizedNames));
   }
 
   // Generate relationship tests
   const relatedPageObjects: Set<string> = new Set();
+  const relatedObjectSanitizedNames = new Map<string, {
+    pageObjectClassName: string;
+    createFunctionName: string;
+    deleteFunctionName: string;
+  }>();
+  
   if (objectDef.relationships && objectDef.relationships.length > 0) {
     // Create a set of available object names for filtering relationships
     const availableObjects: Set<string> | undefined = metadata.objects && Array.isArray(metadata.objects)
       ? new Set(metadata.objects.map((obj: any) => String(obj.fullName || '')))
       : undefined;
-    const relationshipTestGroup = generateRelationshipTestGroup(objectDef, objectDef.relationships, availableObjects);
-    testGroups.push(relationshipTestGroup);
     
-    // Collect all related page objects used in relationship tests
-    for (const relationship of objectDef.relationships) {
-      if (availableObjects && availableObjects.has(relationship.relatedObject)) {
-        relatedPageObjects.add(relationship.relatedObject);
+    // Pre-generate sanitized names for all related objects
+    if (availableObjects) {
+      for (const relationship of objectDef.relationships) {
+        if (availableObjects.has(relationship.relatedObject)) {
+          relatedPageObjects.add(relationship.relatedObject);
+          if (!relatedObjectSanitizedNames.has(relationship.relatedObject)) {
+            relatedObjectSanitizedNames.set(relationship.relatedObject, {
+              pageObjectClassName: generatePageObjectClassName(relationship.relatedObject),
+              createFunctionName: generateTestDataFactoryFunctionName(relationship.relatedObject),
+              deleteFunctionName: generateDeleteFunctionName(relationship.relatedObject),
+            });
+          }
+        }
       }
     }
+    
+    const relationshipTestGroup = generateRelationshipTestGroup(
+      objectDef, 
+      objectDef.relationships, 
+      availableObjects,
+      sanitizedNames,
+      relatedObjectSanitizedNames
+    );
+    testGroups.push(relationshipTestGroup);
   }
 
   // Render template
   const template = await readTemplate('test/object-test.hbs');
   // Generate page object file name (e.g., AccountPage -> account-page)
-  const pageObjectClassName = `${objectDef.fullName}Page`;
-  const pageObjectFileName = `${pageObjectClassName.charAt(0).toLowerCase() + pageObjectClassName.slice(1).replace('Page', '-page')}`;
+  // Reuse pageObjectClassName from sanitizedNames above
+  const pageObjectFileName = generateFileNameFromClassName(pageObjectClassName, '-page');
   
   // Generate additional imports for related page objects (exclude the main object)
   const additionalImports: Array<{ className: string; fileName: string }> = [];
   for (const relatedObject of relatedPageObjects) {
     // Don't import the main object's page object again
     if (relatedObject !== objectDef.fullName) {
-      const relatedClassName = `${relatedObject}Page`;
-      const relatedFileName = `${relatedClassName.charAt(0).toLowerCase() + relatedClassName.slice(1).replace('Page', '-page')}`;
+      const relatedClassName = generatePageObjectClassName(relatedObject);
+      const relatedFileName = generateFileNameFromClassName(relatedClassName, '-page');
       additionalImports.push({ className: relatedClassName, fileName: relatedFileName });
     }
   }
@@ -325,9 +365,13 @@ async function generateObjectTestFile(
   });
 
   // Organize tests by object: Tests/Objects/ObjectName/object-name.spec.ts
-  const objectTestDir = join(options.outputDirectory, 'Tests', 'Objects', objectDef.fullName);
+  // Use sanitized object name for directory and file names (lowercase for consistency)
+  const sanitizedObjectName = sanitizeClassName(objectDef.fullName);
+  const objectTestDirName = generateFileNameFromClassName(sanitizedObjectName, ''); // Use lowercase for directory name
+  const objectTestDir = join(options.outputDirectory, 'Tests', 'Objects', objectTestDirName);
   await mkdir(objectTestDir, { recursive: true });
-  const filePath = join(objectTestDir, `${objectDef.fullName.toLowerCase()}.spec.ts`);
+  const fileName = generateFileNameFromClassName(sanitizedObjectName, '.spec');
+  const filePath = join(objectTestDir, `${fileName}.ts`);
   await writeGeneratedFile(filePath, content, { format: true, fileType: 'typescript' });
 
   return { path: filePath, content };

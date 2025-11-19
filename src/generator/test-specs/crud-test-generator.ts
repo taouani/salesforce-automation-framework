@@ -6,11 +6,28 @@
 import type { CRUDTestDefinition, TestGroupDefinition } from '../../types/test-generation.js';
 import type { ObjectDefinition } from '../../types/xml-parsed.js';
 import { generateTestTags } from '../../utils/test-tag-generator.js';
+import { 
+  generatePageObjectClassName, 
+  generateTestDataFactoryFunctionName, 
+  generateDeleteFunctionName 
+} from '../name-sanitizer.js';
 
 /**
  * Converts object metadata to CRUD test definitions
  */
-export function convertObjectToCRUDTests(objectDef: ObjectDefinition): CRUDTestDefinition[] {
+export function convertObjectToCRUDTests(
+  objectDef: ObjectDefinition,
+  sanitizedNames?: {
+    pageObjectClassName: string;
+    createFunctionName: string;
+    deleteFunctionName: string;
+  }
+): CRUDTestDefinition[] {
+  // Use provided sanitized names or generate them
+  const pageObjectClassName = sanitizedNames?.pageObjectClassName || generatePageObjectClassName(objectDef.fullName);
+  const createFunctionName = sanitizedNames?.createFunctionName || generateTestDataFactoryFunctionName(objectDef.fullName);
+  const deleteFunctionName = sanitizedNames?.deleteFunctionName || generateDeleteFunctionName(objectDef.fullName);
+  
   const tests: CRUDTestDefinition[] = [];
   
   // Create test
@@ -20,7 +37,7 @@ export function convertObjectToCRUDTests(objectDef: ObjectDefinition): CRUDTestD
     operation: 'Create',
     objectName: objectDef.fullName,
     testData: { Name: `Test ${objectDef.label || objectDef.fullName}` },
-    testCase: generateCreateTestCase(objectDef),
+    testCase: generateCreateTestCase(objectDef, pageObjectClassName, createFunctionName),
     tags: generateTestTags('CRUD', { objectName: objectDef.fullName }),
     assertions: [
       { type: 'toBeVisible', expected: true, description: 'Record should be created successfully' },
@@ -33,7 +50,7 @@ export function convertObjectToCRUDTests(objectDef: ObjectDefinition): CRUDTestD
     type: 'CRUD',
     operation: 'Read',
     objectName: objectDef.fullName,
-    testCase: generateReadTestCase(objectDef),
+    testCase: generateReadTestCase(objectDef, pageObjectClassName, createFunctionName, deleteFunctionName),
     tags: generateTestTags('CRUD', { objectName: objectDef.fullName }),
     assertions: [
       { type: 'toBeVisible', expected: true, description: 'Record details should be displayed' },
@@ -47,7 +64,7 @@ export function convertObjectToCRUDTests(objectDef: ObjectDefinition): CRUDTestD
     operation: 'Update',
     objectName: objectDef.fullName,
     testData: { Name: `Updated ${objectDef.label || objectDef.fullName}` },
-    testCase: generateUpdateTestCase(objectDef),
+    testCase: generateUpdateTestCase(objectDef, pageObjectClassName, createFunctionName, deleteFunctionName),
     tags: generateTestTags('CRUD', { objectName: objectDef.fullName }),
     assertions: [
       { type: 'toHaveValue', expected: `Updated ${objectDef.label || objectDef.fullName}`, description: 'Record should be updated' },
@@ -60,7 +77,7 @@ export function convertObjectToCRUDTests(objectDef: ObjectDefinition): CRUDTestD
     type: 'CRUD',
     operation: 'Delete',
     objectName: objectDef.fullName,
-    testCase: generateDeleteTestCase(objectDef),
+    testCase: generateDeleteTestCase(objectDef, pageObjectClassName, createFunctionName),
     tags: generateTestTags('CRUD', { objectName: objectDef.fullName }),
     assertions: [
       { type: 'toBeVisible', expected: true, description: 'Record should be deleted successfully' },
@@ -73,14 +90,17 @@ export function convertObjectToCRUDTests(objectDef: ObjectDefinition): CRUDTestD
 /**
  * Generates Create test case
  */
-function generateCreateTestCase(objectDef: ObjectDefinition): string {
+function generateCreateTestCase(
+  objectDef: ObjectDefinition,
+  pageObjectClassName: string,
+  createFunctionName: string
+): string {
   const objectName = objectDef.fullName;
-  const pageObjectName = `${objectName}Page`;
   const pageVar = `${objectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_create`;
   
   return `test('should create ${objectName} record @crud @${objectName}', async ({ page, testData }) => {
     // Create test record via API
-    const recordId = await testData.create${objectName}({
+    const recordId = await testData.${createFunctionName}({
       Name: 'Test ${objectDef.label || objectName}',
     });
     
@@ -88,7 +108,7 @@ function generateCreateTestCase(objectDef: ObjectDefinition): string {
     await page.goto(\`/lightning/r/${objectName}/\${recordId}/view\`);
     
     // Verify record is displayed
-    const ${pageVar} = new ${pageObjectName}(page);
+    const ${pageVar} = new ${pageObjectClassName}(page);
     await expect(${pageVar}.recordHeader).toBeVisible();
   });`;
 }
@@ -96,14 +116,18 @@ function generateCreateTestCase(objectDef: ObjectDefinition): string {
 /**
  * Generates Read test case
  */
-function generateReadTestCase(objectDef: ObjectDefinition): string {
+function generateReadTestCase(
+  objectDef: ObjectDefinition,
+  pageObjectClassName: string,
+  createFunctionName: string,
+  deleteFunctionName: string
+): string {
   const objectName = objectDef.fullName;
-  const pageObjectName = `${objectName}Page`;
   const pageVar = `${objectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_read`;
   
   return `test('should read ${objectName} record @crud @${objectName}', async ({ page, testData }) => {
     // Create test record via API
-    const recordId = await testData.create${objectName}({
+    const recordId = await testData.${createFunctionName}({
       Name: 'Test ${objectDef.label || objectName}',
     });
     
@@ -111,25 +135,29 @@ function generateReadTestCase(objectDef: ObjectDefinition): string {
     await page.goto(\`/lightning/r/${objectName}/\${recordId}/view\`);
     
     // Verify record details are displayed
-    const ${pageVar} = new ${pageObjectName}(page);
+    const ${pageVar} = new ${pageObjectClassName}(page);
     await expect(${pageVar}.recordHeader).toBeVisible();
     
     // Cleanup
-    await testData.delete${objectName}(recordId);
+    await testData.${deleteFunctionName}(recordId);
   });`;
 }
 
 /**
  * Generates Update test case
  */
-function generateUpdateTestCase(objectDef: ObjectDefinition): string {
+function generateUpdateTestCase(
+  objectDef: ObjectDefinition,
+  pageObjectClassName: string,
+  createFunctionName: string,
+  deleteFunctionName: string
+): string {
   const objectName = objectDef.fullName;
-  const pageObjectName = `${objectName}Page`;
   const pageVar = `${objectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_update`;
   
   return `test('should update ${objectName} record @crud @${objectName}', async ({ page, testData }) => {
     // Create test record via API
-    const recordId = await testData.create${objectName}({
+    const recordId = await testData.${createFunctionName}({
       Name: 'Test ${objectDef.label || objectName}',
     });
     
@@ -137,7 +165,7 @@ function generateUpdateTestCase(objectDef: ObjectDefinition): string {
     await page.goto(\`/lightning/r/${objectName}/\${recordId}/view\`);
     
     // Click Edit button
-    const ${pageVar} = new ${pageObjectName}(page);
+    const ${pageVar} = new ${pageObjectClassName}(page);
     await ${pageVar}.clickEdit();
     
     // Update record
@@ -148,21 +176,24 @@ function generateUpdateTestCase(objectDef: ObjectDefinition): string {
     await expect(${pageVar}.nameField).toHaveValue('Updated ${objectDef.label || objectName}');
     
     // Cleanup
-    await testData.delete${objectName}(recordId);
+    await testData.${deleteFunctionName}(recordId);
   });`;
 }
 
 /**
  * Generates Delete test case
  */
-function generateDeleteTestCase(objectDef: ObjectDefinition): string {
+function generateDeleteTestCase(
+  objectDef: ObjectDefinition,
+  pageObjectClassName: string,
+  createFunctionName: string
+): string {
   const objectName = objectDef.fullName;
-  const pageObjectName = `${objectName}Page`;
   const pageVar = `${objectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_delete`;
   
   return `test('should delete ${objectName} record @crud @${objectName}', async ({ page, testData }) => {
     // Create test record via API
-    const recordId = await testData.create${objectName}({
+    const recordId = await testData.${createFunctionName}({
       Name: 'Test ${objectDef.label || objectName}',
     });
     
@@ -170,7 +201,7 @@ function generateDeleteTestCase(objectDef: ObjectDefinition): string {
     await page.goto(\`/lightning/r/${objectName}/\${recordId}/view\`);
     
     // Delete record
-    const ${pageVar} = new ${pageObjectName}(page);
+    const ${pageVar} = new ${pageObjectClassName}(page);
     await ${pageVar}.clickDelete();
     await ${pageVar}.confirmDelete();
     
@@ -182,8 +213,15 @@ function generateDeleteTestCase(objectDef: ObjectDefinition): string {
 /**
  * Generates CRUD test group for an object
  */
-export function generateCRUDTestGroup(objectDef: ObjectDefinition): TestGroupDefinition {
-  const tests = convertObjectToCRUDTests(objectDef);
+export function generateCRUDTestGroup(
+  objectDef: ObjectDefinition,
+  sanitizedNames?: {
+    pageObjectClassName: string;
+    createFunctionName: string;
+    deleteFunctionName: string;
+  }
+): TestGroupDefinition {
+  const tests = convertObjectToCRUDTests(objectDef, sanitizedNames);
   
   return {
     groupName: `CRUD Operations - ${objectDef.fullName}`,

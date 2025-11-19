@@ -11,6 +11,7 @@ import { writeGeneratedFile } from '../file-generator.js';
 import { readTemplate } from '../template-loader.js';
 import { logger } from '../../utils/logger.js';
 import { join } from 'path';
+import { generatePageObjectClassName, generateFileNameFromClassName } from '../name-sanitizer.js';
 
 /**
  * Converts parsed ObjectDefinition to ObjectPageDefinition
@@ -31,8 +32,10 @@ export function convertObjectToPageDefinition(
     );
   });
 
+  const className = generatePageObjectClassName(objectDef.fullName);
+  
   return {
-    name: `${objectDef.fullName}Page`,
+    name: className,
     type: 'Object',
     objectName: objectDef.fullName,
     objectLabel: objectDef.label,
@@ -70,7 +73,7 @@ export async function generateObjectPageObject(
     });
     
     const className = pageDefinition.name;
-    const fileName = `${className.charAt(0).toLowerCase() + className.slice(1).replace('Page', '-page')}.ts`;
+    const fileName = `${generateFileNameFromClassName(className, '-page')}.ts`;
     // If outputDir already ends with 'pages', don't add it again
     const baseDir = outputDir.endsWith('pages') || outputDir.endsWith('pages/') ? outputDir : join(outputDir, 'pages');
     const filePath = join(baseDir, 'objects', fileName);

@@ -6,11 +6,25 @@
 import type { RecordTypeTestDefinition, TestGroupDefinition } from '../../types/test-generation.js';
 import type { ObjectDefinition, RecordType } from '../../types/xml-parsed.js';
 import { generateTestTags } from '../../utils/test-tag-generator.js';
+import { 
+  generatePageObjectClassName,
+  generateTestDataFactoryFunctionName, 
+  generateDeleteFunctionName 
+} from '../name-sanitizer.js';
 
 export function convertRecordTypesToTests(
   objectDef: ObjectDefinition,
-  recordTypes: RecordType[]
+  recordTypes: RecordType[],
+  sanitizedNames?: {
+    pageObjectClassName: string;
+    createFunctionName: string;
+    deleteFunctionName: string;
+  }
 ): RecordTypeTestDefinition[] {
+  const pageObjectClassName = sanitizedNames?.pageObjectClassName || generatePageObjectClassName(objectDef.fullName);
+  const createFunctionName = sanitizedNames?.createFunctionName || generateTestDataFactoryFunctionName(objectDef.fullName);
+  const deleteFunctionName = sanitizedNames?.deleteFunctionName || generateDeleteFunctionName(objectDef.fullName);
+  
   const tests: RecordTypeTestDefinition[] = [];
   
   let testIndex = 0;
@@ -26,7 +40,7 @@ export function convertRecordTypesToTests(
       objectName: objectDef.fullName,
       testScenario: 'creation',
       testData: { RecordTypeId: recordType.fullName },
-      testCase: generateRecordTypeCreationTestCase(objectDef, recordType),
+      testCase: generateRecordTypeCreationTestCase(objectDef, recordType, createFunctionName, deleteFunctionName),
       tags: generateTestTags('RecordType', { objectName: objectDef.fullName }),
     });
     
@@ -39,7 +53,7 @@ export function convertRecordTypesToTests(
         objectName: objectDef.fullName,
         testScenario: 'fieldVisibility',
         testData: { RecordTypeId: recordType.fullName },
-        testCase: generateRecordTypeFieldVisibilityTestCase(objectDef, recordType, testIndex),
+        testCase: generateRecordTypeFieldVisibilityTestCase(objectDef, recordType, testIndex, pageObjectClassName, createFunctionName, deleteFunctionName),
         tags: generateTestTags('RecordType', { objectName: objectDef.fullName }),
       });
     }
@@ -53,7 +67,7 @@ export function convertRecordTypesToTests(
         objectName: objectDef.fullName,
         testScenario: 'picklistValues',
         testData: { RecordTypeId: recordType.fullName },
-        testCase: generateRecordTypePicklistValuesTestCase(objectDef, recordType, `${testIndex}_${recordType.fullName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_pv`),
+        testCase: generateRecordTypePicklistValuesTestCase(objectDef, recordType, `${testIndex}_${recordType.fullName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_pv`, pageObjectClassName, createFunctionName, deleteFunctionName),
         tags: generateTestTags('RecordType', { objectName: objectDef.fullName }),
       });
     }
@@ -66,7 +80,7 @@ export function convertRecordTypesToTests(
       objectName: objectDef.fullName,
       testScenario: 'assignment',
       testData: { RecordTypeId: recordType.fullName },
-      testCase: generateRecordTypeAssignmentTestCase(objectDef, recordType, `${testIndex}_${recordType.fullName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_asg`),
+      testCase: generateRecordTypeAssignmentTestCase(objectDef, recordType, `${testIndex}_${recordType.fullName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_asg`, pageObjectClassName, createFunctionName, deleteFunctionName),
       tags: generateTestTags('RecordType', { objectName: objectDef.fullName }),
     });
   }
@@ -74,9 +88,14 @@ export function convertRecordTypesToTests(
   return tests;
 }
 
-function generateRecordTypeCreationTestCase(objectDef: ObjectDefinition, recordType: RecordType): string {
+function generateRecordTypeCreationTestCase(
+  objectDef: ObjectDefinition, 
+  recordType: RecordType,
+  createFunctionName: string,
+  deleteFunctionName: string
+): string {
   return `test('should create ${objectDef.fullName} record with record type ${recordType.fullName} @record-type @${objectDef.fullName}', async ({ page, testData }) => {
-    const recordId = await testData.create${objectDef.fullName}({
+    const recordId = await testData.${createFunctionName}({
       Name: 'Test Record',
       RecordTypeId: '${recordType.fullName}',
     });
@@ -85,23 +104,29 @@ function generateRecordTypeCreationTestCase(objectDef: ObjectDefinition, recordT
     // Verify record type is set correctly
     await expect(page.locator('text=${recordType.label}')).toBeVisible();
     
-    await testData.delete${objectDef.fullName}(recordId);
+    await testData.${deleteFunctionName}(recordId);
   });`;
 }
 
-function generateRecordTypeFieldVisibilityTestCase(objectDef: ObjectDefinition, recordType: RecordType, testIndex: string | number): string {
+function generateRecordTypeFieldVisibilityTestCase(
+  objectDef: ObjectDefinition, 
+  recordType: RecordType, 
+  testIndex: string | number,
+  pageObjectClassName: string,
+  createFunctionName: string,
+  deleteFunctionName: string
+): string {
   const objectName = objectDef.fullName;
-  const pageObjectName = `${objectName}Page`;
   const pageVar = `${objectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_rt_${testIndex}`;
   
   return `test('should verify field visibility for record type ${recordType.fullName} @record-type @${objectDef.fullName}', async ({ page, testData }) => {
-    const recordId = await testData.create${objectDef.fullName}({
+    const recordId = await testData.${createFunctionName}({
       Name: 'Test Record',
       RecordTypeId: '${recordType.fullName}',
     });
     
     await page.goto(\`/lightning/r/${objectDef.fullName}/\${recordId}/view\`);
-    const ${pageVar} = new ${pageObjectName}(page);
+    const ${pageVar} = new ${pageObjectClassName}(page);
     
     // Click Edit to see field visibility
     await ${pageVar}.clickEdit();
@@ -111,23 +136,29 @@ function generateRecordTypeFieldVisibilityTestCase(objectDef: ObjectDefinition, 
     // Adjust assertions based on your record type field configurations
     await expect(page.locator('text=Name')).toBeVisible();
     
-    await testData.delete${objectDef.fullName}(recordId);
+    await testData.${deleteFunctionName}(recordId);
   });`;
 }
 
-function generateRecordTypePicklistValuesTestCase(objectDef: ObjectDefinition, recordType: RecordType, testIndex: string | number): string {
+function generateRecordTypePicklistValuesTestCase(
+  objectDef: ObjectDefinition, 
+  recordType: RecordType, 
+  testIndex: string | number,
+  pageObjectClassName: string,
+  createFunctionName: string,
+  deleteFunctionName: string
+): string {
   const objectName = objectDef.fullName;
-  const pageObjectName = `${objectName}Page`;
   const pageVar = `${objectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_rt_${testIndex}`;
   
   return `test('should verify picklist values for record type ${recordType.fullName} @record-type @${objectDef.fullName}', async ({ page, testData }) => {
-    const recordId = await testData.create${objectDef.fullName}({
+    const recordId = await testData.${createFunctionName}({
       Name: 'Test Record',
       RecordTypeId: '${recordType.fullName}',
     });
     
     await page.goto(\`/lightning/r/${objectDef.fullName}/\${recordId}/view\`);
-    const ${pageVar} = new ${pageObjectName}(page);
+    const ${pageVar} = new ${pageObjectClassName}(page);
     
     // Click Edit to see picklist values
     await ${pageVar}.clickEdit();
@@ -141,23 +172,29 @@ function generateRecordTypePicklistValuesTestCase(objectDef: ObjectDefinition, r
     await expect(${fieldName.toLowerCase()}Field).toBeVisible();`;
     }).join('\n    ') || '// No picklist values configured for this record type'}
     
-    await testData.delete${objectDef.fullName}(recordId);
+    await testData.${deleteFunctionName}(recordId);
   });`;
 }
 
-function generateRecordTypeAssignmentTestCase(objectDef: ObjectDefinition, recordType: RecordType, testIndex: string | number): string {
+function generateRecordTypeAssignmentTestCase(
+  objectDef: ObjectDefinition, 
+  recordType: RecordType, 
+  testIndex: string | number,
+  pageObjectClassName: string,
+  createFunctionName: string,
+  deleteFunctionName: string
+): string {
   const objectName = objectDef.fullName;
-  const pageObjectName = `${objectName}Page`;
   const pageVar = `${objectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_rt_${testIndex}`;
   
   return `test('should assign record type ${recordType.fullName} to existing record @record-type @${objectDef.fullName}', async ({ page, testData }) => {
     // Create record with default record type
-    const recordId = await testData.create${objectDef.fullName}({
+    const recordId = await testData.${createFunctionName}({
       Name: 'Test Record',
     });
     
     await page.goto(\`/lightning/r/${objectDef.fullName}/\${recordId}/view\`);
-    const ${pageVar} = new ${pageObjectName}(page);
+    const ${pageVar} = new ${pageObjectClassName}(page);
     
     // Click Edit to change record type
     await ${pageVar}.clickEdit();
@@ -170,15 +207,20 @@ function generateRecordTypeAssignmentTestCase(objectDef: ObjectDefinition, recor
     // Verify record type is changed
     await expect(page.locator('text=${recordType.label}')).toBeVisible();
     
-    await testData.delete${objectDef.fullName}(recordId);
+    await testData.${deleteFunctionName}(recordId);
   });`;
 }
 
 export function generateRecordTypeTestGroup(
   objectDef: ObjectDefinition,
-  recordTypes: RecordType[]
+  recordTypes: RecordType[],
+  sanitizedNames?: {
+    pageObjectClassName: string;
+    createFunctionName: string;
+    deleteFunctionName: string;
+  }
 ): TestGroupDefinition {
-  const tests = convertRecordTypesToTests(objectDef, recordTypes);
+  const tests = convertRecordTypesToTests(objectDef, recordTypes, sanitizedNames);
   
   return {
     groupName: `Record Types - ${objectDef.fullName}`,

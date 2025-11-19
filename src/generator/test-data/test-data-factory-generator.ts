@@ -10,6 +10,7 @@ import type {
 } from '../../types/test-generation.js';
 import type { ObjectDefinition, Relationship } from '../../types/xml-parsed.js';
 import { logger } from '../../utils/logger.js';
+import { generateTestDataFactoryFunctionName, generateDeleteFunctionName, sanitizeVariableName, generateRelationshipHelperName } from '../name-sanitizer.js';
 
 /**
  * Generates a factory function for creating records of a specific object type
@@ -18,7 +19,7 @@ export function generateTestDataFactory(
   objectDef: ObjectDefinition
 ): TestDataFactoryDefinition {
   const objectName = objectDef.fullName;
-  const functionName = `create${objectName}`;
+  const functionName = generateTestDataFactoryFunctionName(objectName);
   
   // Determine required fields (excluding system fields)
   const requiredFields = objectDef.fields.filter(
@@ -27,7 +28,7 @@ export function generateTestDataFactory(
   
   // Build parameters from required fields
   const parameters: ParameterDefinition[] = requiredFields.map(field => ({
-    name: field.fullName.toLowerCase(),
+    name: sanitizeVariableName(field.fullName),
     type: getTypeScriptType(field.type),
     optional: false,
     description: field.label || field.fullName,
@@ -44,7 +45,7 @@ export function generateTestDataFactory(
   
   // Build implementation
   const fieldAssignments = requiredFields.map(field => {
-    const paramName = field.fullName.toLowerCase();
+    const paramName = sanitizeVariableName(field.fullName);
     return `      ${field.fullName}: ${paramName},`;
   }).join('\n');
   
@@ -93,24 +94,26 @@ export function generateRelationshipHelper(
   parentObjectName: string,
   childObjectName: string
 ): TestDataHelperDefinition {
-  const helperName = `create${childObjectName}For${parentObjectName}`;
+  const helperName = generateRelationshipHelperName(parentObjectName, childObjectName);
   const relationshipField = relationship.fieldName;
+  
+  const paramName = sanitizeVariableName(`${parentObjectName}Id`);
   
   const implementation = `/**
  * Creates a ${childObjectName} record related to a ${parentObjectName} record
- * @param ${parentObjectName.toLowerCase()}Id - The ID of the parent ${parentObjectName} record
+ * @param ${paramName} - The ID of the parent ${parentObjectName} record
  * @param additionalData - Additional field values to set on the ${childObjectName} record
  * @returns Promise with the created ${childObjectName} record ID
  */
 export async function ${helperName}(
-  ${parentObjectName.toLowerCase()}Id: string,
+  ${paramName}: string,
   additionalData: Record<string, unknown> = {}
 ): Promise<string> {
   const auth = await authenticate();
   const client = new SalesforceRESTAPIClient(auth);
   
   const recordData: Record<string, unknown> = {
-    ${relationshipField}: ${parentObjectName.toLowerCase()}Id,
+    ${relationshipField}: ${paramName},
     ...additionalData,
   };
   
@@ -122,7 +125,7 @@ export async function ${helperName}(
     purpose: 'createRelated',
     parameters: [
       {
-        name: `${parentObjectName.toLowerCase()}Id`,
+        name: paramName,
         type: 'string',
         description: `The ID of the parent ${parentObjectName} record`,
       },
@@ -144,7 +147,7 @@ export async function ${helperName}(
  * Generates a cleanup function for deleting test records
  */
 export function generateCleanupFunction(objectName: string): TestDataHelperDefinition {
-  const helperName = `delete${objectName}`;
+  const helperName = generateDeleteFunctionName(objectName);
   
   const implementation = `/**
  * Deletes a ${objectName} record using Salesforce REST API
