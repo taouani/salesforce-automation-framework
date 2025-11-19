@@ -10,6 +10,7 @@ import { writeGeneratedFile } from '../file-generator.js';
 import { readTemplate } from '../template-loader.js';
 import { logger } from '../../utils/logger.js';
 import { join } from 'path';
+import { sanitizeClassName, generateFileNameFromClassName } from '../name-sanitizer.js';
 
 /**
  * Maps Apex/Salesforce types to TypeScript types
@@ -81,8 +82,10 @@ export function convertLWCToPageDefinition(
     });
   }
 
+  const sanitizedComponentName = sanitizeClassName(componentName);
+  
   return {
-    name: `${componentName}ComponentPage`,
+    name: `${sanitizedComponentName}ComponentPage`,
     type: 'LWC',
     componentName,
     componentType: 'LWC',
@@ -100,12 +103,33 @@ export function convertLWCToPageDefinition(
 }
 
 /**
+ * Reserved component names that should not have page objects generated
+ * (to avoid conflicts with base classes)
+ */
+const RESERVED_COMPONENT_NAMES = new Set([
+  'Base',
+  'BaseObject',
+  'BaseLightning',
+  'BaseComponent',
+  'BaseFlow',
+  'BasePage',
+]);
+
+/**
  * Generates a page object class for an LWC component
  */
 export async function generateLWCComponentPageObject(
   outputDir: string,
   componentDef: LWCComponentDefinition
 ): Promise<string> {
+  const componentName = componentDef.metadata.name;
+  
+  // Skip reserved component names to avoid conflicts with base classes
+  if (RESERVED_COMPONENT_NAMES.has(componentName)) {
+    logger.warn({ componentName }, 'Skipping reserved component name to avoid conflicts with base classes');
+    throw new Error(`Cannot generate page object for reserved component name: ${componentName}`);
+  }
+  
   try {
     const pageDefinition = convertLWCToPageDefinition(componentDef);
     const template = await readTemplate('page-object/lwc-component.hbs');
@@ -115,7 +139,7 @@ export async function generateLWCComponentPageObject(
     });
     
     const className = pageDefinition.name;
-    const fileName = `${className.charAt(0).toLowerCase() + className.slice(1).replace('ComponentPage', '-component-page')}.ts`;
+    const fileName = `${generateFileNameFromClassName(className, '-component-page')}.ts`;
     // If outputDir already ends with 'pages', don't add it again
     const baseDir = outputDir.endsWith('pages') || outputDir.endsWith('pages/') ? outputDir : join(outputDir, 'pages');
     const filePath = join(baseDir, 'components', 'lwc', fileName);

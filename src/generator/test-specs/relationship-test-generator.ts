@@ -6,11 +6,30 @@
 import type { RelationshipTestDefinition, TestGroupDefinition } from '../../types/test-generation.js';
 import type { ObjectDefinition, Relationship } from '../../types/xml-parsed.js';
 import { generateTestTags } from '../../utils/test-tag-generator.js';
+import { 
+  generatePageObjectClassName,
+  generateTestDataFactoryFunctionName, 
+  generateDeleteFunctionName 
+} from '../name-sanitizer.js';
 
 export function convertRelationshipsToTests(
   objectDef: ObjectDefinition,
-  relationships: Relationship[]
+  relationships: Relationship[],
+  sanitizedNames?: {
+    pageObjectClassName: string;
+    createFunctionName: string;
+    deleteFunctionName: string;
+  },
+  relatedObjectSanitizedNames?: Map<string, {
+    pageObjectClassName: string;
+    createFunctionName: string;
+    deleteFunctionName: string;
+  }>
 ): RelationshipTestDefinition[] {
+  const childPageObjectClassName = sanitizedNames?.pageObjectClassName || generatePageObjectClassName(objectDef.fullName);
+  const childCreateFunctionName = sanitizedNames?.createFunctionName || generateTestDataFactoryFunctionName(objectDef.fullName);
+  const childDeleteFunctionName = sanitizedNames?.deleteFunctionName || generateDeleteFunctionName(objectDef.fullName);
+  
   const tests: RelationshipTestDefinition[] = [];
   
   let testIndex = 0;
@@ -19,6 +38,12 @@ export function convertRelationshipsToTests(
     const isMasterDetail = relationship.type === 'MasterDetail';
     const parentObject = isMasterDetail ? relationship.relatedObject : objectDef.fullName;
     const childObject = isMasterDetail ? objectDef.fullName : relationship.relatedObject;
+    
+    // Get sanitized names for related object
+    const relatedNames = relatedObjectSanitizedNames?.get(relationship.relatedObject);
+    const parentPageObjectClassName = relatedNames?.pageObjectClassName || generatePageObjectClassName(relationship.relatedObject);
+    const parentCreateFunctionName = relatedNames?.createFunctionName || generateTestDataFactoryFunctionName(relationship.relatedObject);
+    const parentDeleteFunctionName = relatedNames?.deleteFunctionName || generateDeleteFunctionName(relationship.relatedObject);
     
     // Population test (existing)
     tests.push({
@@ -29,12 +54,18 @@ export function convertRelationshipsToTests(
       parentObject,
       childObject,
       testScenario: 'population',
-      testCase: generateRelationshipTestCase(objectDef, relationship, `${testIndex}_${relationship.fieldName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_pop`),
+      testCase: generateRelationshipTestCase(objectDef, relationship, `${testIndex}_${relationship.fieldName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_pop`, parentCreateFunctionName, childCreateFunctionName, childDeleteFunctionName, parentDeleteFunctionName),
       tags: generateTestTags('Relationship', { objectName: objectDef.fullName }),
     });
     
     // Cascade delete test (only for master-detail relationships)
     if (isMasterDetail && relationship.cascadeDelete !== false) {
+      const masterObject = relationship.relatedObject;
+      const detailObject = objectDef.fullName;
+      const masterPageObjectClassName = parentPageObjectClassName;
+      const masterCreateFunctionName = parentCreateFunctionName;
+      const detailCreateFunctionName = childCreateFunctionName;
+      
       tests.push({
         name: `test-relationship-${relationship.fieldName.toLowerCase()}-cascade-delete`,
         type: 'Relationship',
@@ -43,7 +74,7 @@ export function convertRelationshipsToTests(
         parentObject,
         childObject,
         testScenario: 'cascadeDelete',
-        testCase: generateCascadeDeleteTestCase(objectDef, relationship, `${testIndex}_${relationship.fieldName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_cd`),
+        testCase: generateCascadeDeleteTestCase(objectDef, relationship, `${testIndex}_${relationship.fieldName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_cd`, masterObject, detailObject, masterPageObjectClassName, masterCreateFunctionName, detailCreateFunctionName),
         tags: generateTestTags('Relationship', { objectName: objectDef.fullName }),
       });
     }
@@ -57,7 +88,7 @@ export function convertRelationshipsToTests(
       parentObject,
       childObject,
       testScenario: 'update',
-      testCase: generateRelationshipUpdateTestCase(objectDef, relationship, `${testIndex}_${relationship.fieldName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_upd`),
+      testCase: generateRelationshipUpdateTestCase(objectDef, relationship, `${testIndex}_${relationship.fieldName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_upd`, childPageObjectClassName, parentCreateFunctionName, childCreateFunctionName, childDeleteFunctionName, parentDeleteFunctionName),
       tags: generateTestTags('Relationship', { objectName: objectDef.fullName }),
     });
     
@@ -70,7 +101,7 @@ export function convertRelationshipsToTests(
       parentObject,
       childObject,
       testScenario: 'navigation',
-      testCase: generateRelationshipNavigationTestCase(objectDef, relationship, `${testIndex}_${relationship.fieldName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_nav`),
+      testCase: generateRelationshipNavigationTestCase(objectDef, relationship, `${testIndex}_${relationship.fieldName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_nav`, childPageObjectClassName, parentPageObjectClassName, parentCreateFunctionName, childCreateFunctionName, childDeleteFunctionName, parentDeleteFunctionName),
       tags: generateTestTags('Relationship', { objectName: objectDef.fullName }),
     });
   }
@@ -78,15 +109,23 @@ export function convertRelationshipsToTests(
   return tests;
 }
 
-function generateRelationshipTestCase(objectDef: ObjectDefinition, relationship: Relationship, _testIndex: string | number): string {
+function generateRelationshipTestCase(
+  objectDef: ObjectDefinition, 
+  relationship: Relationship, 
+  _testIndex: string | number,
+  parentCreateFunctionName: string,
+  childCreateFunctionName: string,
+  childDeleteFunctionName: string,
+  parentDeleteFunctionName: string
+): string {
   return `test('should populate relationship ${relationship.fieldName} @relationship @${objectDef.fullName}', async ({ page, testData }) => {
     // Create parent record
-    const parentId = await testData.create${relationship.relatedObject}({
+    const parentId = await testData.${parentCreateFunctionName}({
       Name: 'Parent Record',
     });
     
     // Create child record with relationship
-    const childId = await testData.create${objectDef.fullName}({
+    const childId = await testData.${childCreateFunctionName}({
       Name: 'Child Record',
       ${relationship.fieldName}: parentId,
     });
@@ -96,28 +135,32 @@ function generateRelationshipTestCase(objectDef: ObjectDefinition, relationship:
     await expect(page.locator('text=Parent Record')).toBeVisible();
     
     // Cleanup
-    await testData.delete${objectDef.fullName}(childId);
-    await testData.delete${relationship.relatedObject}(parentId);
+    await testData.${childDeleteFunctionName}(childId);
+    await testData.${parentDeleteFunctionName}(parentId);
   });`;
 }
 
-function generateCascadeDeleteTestCase(objectDef: ObjectDefinition, relationship: Relationship, testIndex: string | number): string {
-  const isMasterDetail = relationship.type === 'MasterDetail';
-  const masterObject = isMasterDetail ? relationship.relatedObject : objectDef.fullName;
-  const detailObject = isMasterDetail ? objectDef.fullName : relationship.relatedObject;
-  const masterPageObjectName = `${masterObject}Page`;
-  
+function generateCascadeDeleteTestCase(
+  objectDef: ObjectDefinition, 
+  relationship: Relationship, 
+  testIndex: string | number,
+  masterObject: string,
+  detailObject: string,
+  masterPageObjectClassName: string,
+  masterCreateFunctionName: string,
+  detailCreateFunctionName: string
+): string {
   // Generate unique variable name to avoid redeclaration
   const masterPageVar = `${masterObject.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_${testIndex}`;
   
   return `test('should cascade delete detail records when master is deleted @relationship @${objectDef.fullName}', async ({ page, testData }) => {
     // Create master record
-    const masterId = await testData.create${masterObject}({
+    const masterId = await testData.${masterCreateFunctionName}({
       Name: 'Master Record',
     });
     
     // Create detail record with relationship
-    const detailId = await testData.create${detailObject}({
+    const detailId = await testData.${detailCreateFunctionName}({
       Name: 'Detail Record',
       ${relationship.fieldName}: masterId,
     });
@@ -128,7 +171,7 @@ function generateCascadeDeleteTestCase(objectDef: ObjectDefinition, relationship
     
     // Delete master record
     await page.goto(\`/lightning/r/${masterObject}/\${masterId}/view\`);
-    const ${masterPageVar} = new ${masterPageObjectName}(page);
+    const ${masterPageVar} = new ${masterPageObjectClassName}(page);
     await ${masterPageVar}.clickDelete();
     await ${masterPageVar}.confirmDelete();
     
@@ -139,33 +182,41 @@ function generateCascadeDeleteTestCase(objectDef: ObjectDefinition, relationship
   });`;
 }
 
-function generateRelationshipUpdateTestCase(objectDef: ObjectDefinition, relationship: Relationship, testIndex: string | number): string {
+function generateRelationshipUpdateTestCase(
+  objectDef: ObjectDefinition, 
+  relationship: Relationship, 
+  testIndex: string | number,
+  childPageObjectClassName: string,
+  parentCreateFunctionName: string,
+  childCreateFunctionName: string,
+  childDeleteFunctionName: string,
+  parentDeleteFunctionName: string
+): string {
   const objectName = objectDef.fullName;
-  const pageObjectName = `${objectName}Page`;
   
   // Generate unique variable name to avoid redeclaration
   const childPageVar = `${objectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_${testIndex}`;
   
   return `test('should update relationship ${relationship.fieldName} @relationship @${objectDef.fullName}', async ({ page, testData }) => {
     // Create first parent record
-    const parent1Id = await testData.create${relationship.relatedObject}({
+    const parent1Id = await testData.${parentCreateFunctionName}({
       Name: 'Parent Record 1',
     });
     
     // Create second parent record
-    const parent2Id = await testData.create${relationship.relatedObject}({
+    const parent2Id = await testData.${parentCreateFunctionName}({
       Name: 'Parent Record 2',
     });
     
     // Create child record with first parent
-    const childId = await testData.create${objectDef.fullName}({
+    const childId = await testData.${childCreateFunctionName}({
       Name: 'Child Record',
       ${relationship.fieldName}: parent1Id,
     });
     
     // Navigate to child record and update relationship
     await page.goto(\`/lightning/r/${objectDef.fullName}/\${childId}/view\`);
-    const ${childPageVar} = new ${pageObjectName}(page);
+    const ${childPageVar} = new ${childPageObjectClassName}(page);
     
     // Click Edit to change relationship
     await ${childPageVar}.clickEdit();
@@ -178,17 +229,25 @@ function generateRelationshipUpdateTestCase(objectDef: ObjectDefinition, relatio
     await expect(page.locator('text=Parent Record 2')).toBeVisible();
     
     // Cleanup
-    await testData.delete${objectDef.fullName}(childId);
-    await testData.delete${relationship.relatedObject}(parent1Id);
-    await testData.delete${relationship.relatedObject}(parent2Id);
+    await testData.${childDeleteFunctionName}(childId);
+    await testData.${parentDeleteFunctionName}(parent1Id);
+    await testData.${parentDeleteFunctionName}(parent2Id);
   });`;
 }
 
-function generateRelationshipNavigationTestCase(objectDef: ObjectDefinition, relationship: Relationship, testIndex: string | number): string {
+function generateRelationshipNavigationTestCase(
+  objectDef: ObjectDefinition, 
+  relationship: Relationship, 
+  testIndex: string | number,
+  childPageObjectClassName: string,
+  parentPageObjectClassName: string,
+  parentCreateFunctionName: string,
+  childCreateFunctionName: string,
+  childDeleteFunctionName: string,
+  parentDeleteFunctionName: string
+): string {
   const objectName = objectDef.fullName;
-  const pageObjectName = `${objectName}Page`;
   const relatedObjectName = relationship.relatedObject;
-  const relatedPageObjectName = `${relatedObjectName}Page`;
   
   // Generate unique variable names to avoid redeclaration
   const fieldNameSanitized = relationship.fieldName.toLowerCase().replace(/[^a-z0-9]/g, '_');
@@ -197,39 +256,49 @@ function generateRelationshipNavigationTestCase(objectDef: ObjectDefinition, rel
   
   return `test('should navigate to related record via relationship ${relationship.fieldName} @relationship @${objectDef.fullName}', async ({ page, testData }) => {
     // Create parent record
-    const parentId = await testData.create${relationship.relatedObject}({
+    const parentId = await testData.${parentCreateFunctionName}({
       Name: 'Parent Record',
     });
     
     // Create child record with relationship
-    const childId = await testData.create${objectDef.fullName}({
+    const childId = await testData.${childCreateFunctionName}({
       Name: 'Child Record',
       ${relationship.fieldName}: parentId,
     });
     
     // Navigate to child record
     await page.goto(\`/lightning/r/${objectDef.fullName}/\${childId}/view\`);
-    const ${childPageVar} = new ${pageObjectName}(page);
+    const ${childPageVar} = new ${childPageObjectClassName}(page);
     
     // Click on relationship field to navigate to parent record
     await ${childPageVar}.clickRelationship('${relationship.fieldName}');
     
     // Verify navigation to parent record
     await expect(page).toHaveURL(new RegExp('.*/${relatedObjectName}/.*'));
-    const ${parentPageVar} = new ${relatedPageObjectName}(page);
+    const ${parentPageVar} = new ${parentPageObjectClassName}(page);
     await expect(${parentPageVar}.recordHeader).toBeVisible();
     await expect(page.locator('text=Parent Record')).toBeVisible();
     
     // Cleanup
-    await testData.delete${objectDef.fullName}(childId);
-    await testData.delete${relationship.relatedObject}(parentId);
+    await testData.${childDeleteFunctionName}(childId);
+    await testData.${parentDeleteFunctionName}(parentId);
   });`;
 }
 
 export function generateRelationshipTestGroup(
   objectDef: ObjectDefinition,
   relationships: Relationship[],
-  availableObjects?: Set<string> // Set of object API names that have factories available
+  availableObjects?: Set<string>, // Set of object API names that have factories available
+  sanitizedNames?: {
+    pageObjectClassName: string;
+    createFunctionName: string;
+    deleteFunctionName: string;
+  },
+  relatedObjectSanitizedNames?: Map<string, {
+    pageObjectClassName: string;
+    createFunctionName: string;
+    deleteFunctionName: string;
+  }>
 ): TestGroupDefinition {
   // Filter relationships to only include those where the related object has a factory
   const validRelationships = availableObjects
@@ -241,7 +310,7 @@ export function generateRelationshipTestGroup(
       })
     : relationships;
   
-  const tests = convertRelationshipsToTests(objectDef, validRelationships);
+  const tests = convertRelationshipsToTests(objectDef, validRelationships, sanitizedNames, relatedObjectSanitizedNames);
   
   return {
     groupName: `Relationships - ${objectDef.fullName}`,

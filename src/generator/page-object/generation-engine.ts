@@ -151,7 +151,13 @@ export async function generatePageObjects(
               type: 'pageObject',
             });
           } catch (error) {
-            logger.warn({ componentName: component.metadata.name, error }, 'Failed to generate LWC component page object, skipping');
+            // Skip reserved component names silently (they're expected to be skipped)
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (errorMessage.includes('reserved component name')) {
+              logger.debug({ componentName: component.metadata.name }, 'Skipped reserved component name');
+            } else {
+              logger.warn({ componentName: component.metadata.name, error }, 'Failed to generate LWC component page object, skipping');
+            }
           }
         }
       } catch (error) {
@@ -179,7 +185,13 @@ export async function generatePageObjects(
               type: 'pageObject',
             });
           } catch (error) {
-            logger.warn({ componentName: component.metadata.name, error }, 'Failed to generate Aura component page object, skipping');
+            // Skip reserved component names silently (they're expected to be skipped)
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (errorMessage.includes('reserved component name')) {
+              logger.debug({ componentName: component.metadata.name }, 'Skipped reserved component name');
+            } else {
+              logger.warn({ componentName: component.metadata.name, error }, 'Failed to generate Aura component page object, skipping');
+            }
           }
         }
       } catch (error) {

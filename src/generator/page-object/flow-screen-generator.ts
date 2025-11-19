@@ -11,6 +11,7 @@ import { writeGeneratedFile } from '../file-generator.js';
 import { readTemplate } from '../template-loader.js';
 import { logger } from '../../utils/logger.js';
 import { join } from 'path';
+import { sanitizeClassName, generateFileNameFromClassName } from '../name-sanitizer.js';
 
 /**
  * Converts parsed Flow screen definition to FlowScreenPageDefinition
@@ -43,8 +44,11 @@ export function convertFlowScreenToPageDefinition(
     }
   }
 
+  const sanitizedFlowName = sanitizeClassName(flowName);
+  const sanitizedScreenName = sanitizeClassName(screenName);
+  
   return {
-    name: `${flowName}${screenName}Page`,
+    name: `${sanitizedFlowName}${sanitizedScreenName}Page`,
     type: 'Flow',
     flowName,
     screenName,
@@ -86,7 +90,7 @@ export async function generateFlowScreenPageObject(
     });
     
     const className = pageDefinition.name;
-    const fileName = `${className.charAt(0).toLowerCase() + className.slice(1).replace('Page', '-page')}.ts`;
+    const fileName = `${generateFileNameFromClassName(className, '-page')}.ts`;
     // If outputDir already ends with 'pages', don't add it again
     const baseDir = outputDir.endsWith('pages') || outputDir.endsWith('pages/') ? outputDir : join(outputDir, 'pages');
     const filePath = join(baseDir, 'flows', fileName);

@@ -6,11 +6,22 @@
 import type { FieldValidationTestDefinition, TestGroupDefinition } from '../../types/test-generation.js';
 import type { ObjectDefinition, FieldDefinition } from '../../types/xml-parsed.js';
 import { generateTestTags } from '../../utils/test-tag-generator.js';
+import { 
+  generatePageObjectClassName,
+  generateTestDataFactoryFunctionName 
+} from '../name-sanitizer.js';
 
 export function convertFieldsToValidationTests(
   objectDef: ObjectDefinition,
-  fields: FieldDefinition[]
+  fields: FieldDefinition[],
+  sanitizedNames?: {
+    pageObjectClassName: string;
+    createFunctionName: string;
+  }
 ): FieldValidationTestDefinition[] {
+  const pageObjectClassName = sanitizedNames?.pageObjectClassName || generatePageObjectClassName(objectDef.fullName);
+  const createFunctionName = sanitizedNames?.createFunctionName || generateTestDataFactoryFunctionName(objectDef.fullName);
+  
   const tests: FieldValidationTestDefinition[] = [];
   
   let testIndex = 0;
@@ -26,7 +37,7 @@ export function convertFieldsToValidationTests(
         validationType: 'required',
         objectName: objectDef.fullName,
         expectedError: `${field.label || field.fullName} is required`,
-        testCase: generateRequiredFieldTestCase(objectDef, field),
+        testCase: generateRequiredFieldTestCase(objectDef, field, createFunctionName),
         tags: generateTestTags('FieldValidation', { objectName: objectDef.fullName }),
       });
     }
@@ -41,7 +52,7 @@ export function convertFieldsToValidationTests(
         validationType: 'format',
         objectName: objectDef.fullName,
         expectedError: `Invalid ${field.type.toLowerCase()} format`,
-        testCase: generateFormatValidationTestCase(objectDef, field, `${testIndex}_${field.fullName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_fmt`),
+        testCase: generateFormatValidationTestCase(objectDef, field, `${testIndex}_${field.fullName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_fmt`, pageObjectClassName, createFunctionName),
         tags: generateTestTags('FieldValidation', { objectName: objectDef.fullName }),
       });
     }
@@ -56,7 +67,7 @@ export function convertFieldsToValidationTests(
         validationType: 'length',
         objectName: objectDef.fullName,
         expectedError: `Field length exceeds maximum of ${field.length} characters`,
-        testCase: generateLengthConstraintTestCase(objectDef, field, `${testIndex}_${field.fullName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_len`),
+        testCase: generateLengthConstraintTestCase(objectDef, field, `${testIndex}_${field.fullName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_len`, pageObjectClassName, createFunctionName),
         tags: generateTestTags('FieldValidation', { objectName: objectDef.fullName }),
       });
     }
@@ -71,7 +82,7 @@ export function convertFieldsToValidationTests(
         validationType: 'picklist',
         objectName: objectDef.fullName,
         expectedError: `Invalid picklist value for ${field.label || field.fullName}`,
-        testCase: generatePicklistRestrictionTestCase(objectDef, field, `${testIndex}_${field.fullName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_pl`),
+        testCase: generatePicklistRestrictionTestCase(objectDef, field, `${testIndex}_${field.fullName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_pl`, pageObjectClassName, createFunctionName),
         tags: generateTestTags('FieldValidation', { objectName: objectDef.fullName }),
       });
     }
@@ -80,11 +91,15 @@ export function convertFieldsToValidationTests(
   return tests;
 }
 
-function generateRequiredFieldTestCase(objectDef: ObjectDefinition, field: FieldDefinition): string {
+function generateRequiredFieldTestCase(
+  objectDef: ObjectDefinition, 
+  field: FieldDefinition,
+  createFunctionName: string
+): string {
   return `test('should require field ${field.fullName} @field-validation @${objectDef.fullName}', async ({ page, testData }) => {
     // Attempt to create record without required field
     try {
-      await testData.create${objectDef.fullName}({
+      await testData.${createFunctionName}({
         // Missing required field: ${field.fullName}
       });
     } catch (error) {
@@ -99,16 +114,21 @@ function generateRequiredFieldTestCase(objectDef: ObjectDefinition, field: Field
   });`;
 }
 
-function generateFormatValidationTestCase(objectDef: ObjectDefinition, field: FieldDefinition, testIndex: string | number): string {
+function generateFormatValidationTestCase(
+  objectDef: ObjectDefinition, 
+  field: FieldDefinition, 
+  testIndex: string | number,
+  pageObjectClassName: string,
+  createFunctionName: string
+): string {
   const objectName = objectDef.fullName;
-  const pageObjectName = `${objectName}Page`;
   const pageVar = `${objectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_fv_${testIndex}`;
   const invalidValue = getInvalidFormatValue(field.type);
   
   return `test('should validate ${field.type.toLowerCase()} format for field ${field.fullName} @field-validation @${objectDef.fullName}', async ({ page, testData }) => {
     // Attempt to create record with invalid ${field.type.toLowerCase()} format
     try {
-      await testData.create${objectDef.fullName}({
+      await testData.${createFunctionName}({
         Name: 'Test Record',
         ${field.fullName}: '${invalidValue}',
       });
@@ -119,7 +139,7 @@ function generateFormatValidationTestCase(objectDef: ObjectDefinition, field: Fi
     
     // Verify via UI
     await page.goto(\`/lightning/o/${objectDef.fullName}/new\`);
-    const ${pageVar} = new ${pageObjectName}(page);
+    const ${pageVar} = new ${pageObjectClassName}(page);
     
     // Enter invalid ${field.type.toLowerCase()} format
     await ${pageVar}.fillField('${field.fullName}', '${invalidValue}');
@@ -132,9 +152,14 @@ function generateFormatValidationTestCase(objectDef: ObjectDefinition, field: Fi
   });`;
 }
 
-function generateLengthConstraintTestCase(objectDef: ObjectDefinition, field: FieldDefinition, testIndex: string | number): string {
+function generateLengthConstraintTestCase(
+  objectDef: ObjectDefinition, 
+  field: FieldDefinition, 
+  testIndex: string | number,
+  pageObjectClassName: string,
+  createFunctionName: string
+): string {
   const objectName = objectDef.fullName;
-  const pageObjectName = `${objectName}Page`;
   const pageVar = `${objectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_fv_${testIndex}`;
   const maxLength = field.length || 255;
   const invalidValue = 'x'.repeat(maxLength + 1); // Exceeds max length
@@ -142,7 +167,7 @@ function generateLengthConstraintTestCase(objectDef: ObjectDefinition, field: Fi
   return `test('should validate length constraint for field ${field.fullName} @field-validation @${objectDef.fullName}', async ({ page, testData }) => {
     // Attempt to create record with value exceeding max length (${maxLength} characters)
     try {
-      await testData.create${objectDef.fullName}({
+      await testData.${createFunctionName}({
         Name: 'Test Record',
         ${field.fullName}: '${invalidValue}',
       });
@@ -153,7 +178,7 @@ function generateLengthConstraintTestCase(objectDef: ObjectDefinition, field: Fi
     
     // Verify via UI
     await page.goto(\`/lightning/o/${objectDef.fullName}/new\`);
-    const ${pageVar} = new ${pageObjectName}(page);
+    const ${pageVar} = new ${pageObjectClassName}(page);
     
     // Enter value exceeding max length
     await ${pageVar}.fillField('${field.fullName}', '${invalidValue}');
@@ -166,16 +191,21 @@ function generateLengthConstraintTestCase(objectDef: ObjectDefinition, field: Fi
   });`;
 }
 
-function generatePicklistRestrictionTestCase(objectDef: ObjectDefinition, field: FieldDefinition, testIndex: string | number): string {
+function generatePicklistRestrictionTestCase(
+  objectDef: ObjectDefinition, 
+  field: FieldDefinition, 
+  testIndex: string | number,
+  pageObjectClassName: string,
+  createFunctionName: string
+): string {
   const objectName = objectDef.fullName;
-  const pageObjectName = `${objectName}Page`;
   const pageVar = `${objectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_fv_${testIndex}`;
   const invalidValue = 'InvalidPicklistValue';
   
   return `test('should validate picklist values for field ${field.fullName} @field-validation @${objectDef.fullName}', async ({ page, testData }) => {
     // Attempt to create record with invalid picklist value
     try {
-      await testData.create${objectDef.fullName}({
+      await testData.${createFunctionName}({
         Name: 'Test Record',
         ${field.fullName}: '${invalidValue}',
       });
@@ -186,7 +216,7 @@ function generatePicklistRestrictionTestCase(objectDef: ObjectDefinition, field:
     
     // Verify via UI
     await page.goto(\`/lightning/o/${objectDef.fullName}/new\`);
-    const ${pageVar} = new ${pageObjectName}(page);
+    const ${pageVar} = new ${pageObjectClassName}(page);
     
     // Attempt to select invalid picklist value
     // Note: UI may prevent selecting invalid values, but we test the validation
@@ -215,9 +245,13 @@ function getInvalidFormatValue(fieldType: string): string {
 
 export function generateFieldValidationTestGroup(
   objectDef: ObjectDefinition,
-  fields: FieldDefinition[]
+  fields: FieldDefinition[],
+  sanitizedNames?: {
+    pageObjectClassName: string;
+    createFunctionName: string;
+  }
 ): TestGroupDefinition {
-  const tests = convertFieldsToValidationTests(objectDef, fields);
+  const tests = convertFieldsToValidationTests(objectDef, fields, sanitizedNames);
   
   return {
     groupName: `Field Validations - ${objectDef.fullName}`,

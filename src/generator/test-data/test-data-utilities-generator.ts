@@ -26,6 +26,11 @@ export async function generateTestDataUtilitiesFile(
   const factories: TestDataFactoryDefinition[] = [];
   const helpers: TestDataHelperDefinition[] = [];
   const cleanupFunctions: TestDataHelperDefinition[] = [];
+  
+  // Track function names to prevent duplicates
+  const factoryNames = new Set<string>();
+  const helperNames = new Set<string>();
+  const cleanupNames = new Set<string>();
 
   // Generate factories and helpers for each object
   for (const objectDef of objects) {
@@ -35,9 +40,25 @@ export async function generateTestDataUtilitiesFile(
       relationships
     );
     
-    factories.push(factory);
-    helpers.push(...objectHelpers);
-    cleanupFunctions.push(cleanup);
+    // Only add factory if not already present
+    if (!factoryNames.has(factory.functionName)) {
+      factories.push(factory);
+      factoryNames.add(factory.functionName);
+    }
+    
+    // Only add helpers if not already present
+    for (const helper of objectHelpers) {
+      if (!helperNames.has(helper.helperName)) {
+        helpers.push(helper);
+        helperNames.add(helper.helperName);
+      }
+    }
+    
+    // Only add cleanup if not already present
+    if (!cleanupNames.has(cleanup.helperName)) {
+      cleanupFunctions.push(cleanup);
+      cleanupNames.add(cleanup.helperName);
+    }
   }
 
   // Build file content
