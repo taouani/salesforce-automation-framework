@@ -79,32 +79,50 @@ npm run type-check
 ### Parse Salesforce Metadata
 
 ```bash
-# Parse all metadata types
-npm run dev parse-all -i ./salesforce-metadata -o ./parsed-results
+# Parse XML metadata (objects, profiles, permission sets)
+# Note: Use -- to separate npm arguments from CLI arguments
+npm run dev -- parse ./salesforce-metadata -o ./parsed-results
 
 # Parse specific metadata types
-npm run dev parse-xml -i ./salesforce-metadata -o ./parsed-results
-npm run dev parse-apex -i ./salesforce-metadata -o ./parsed-results
-npm run dev parse-lwc -i ./salesforce-metadata -o ./parsed-results
-npm run dev parse-aura -i ./salesforce-metadata -o ./parsed-results
-npm run dev parse-flows -i ./salesforce-metadata -o ./parsed-results
+npm run dev -- parse-apex ./salesforce-metadata -o ./parsed-results
+npm run dev -- parse-lwc ./salesforce-metadata -o ./parsed-results
+npm run dev -- parse-aura ./salesforce-metadata -o ./parsed-results
+npm run dev -- parse-flow ./salesforce-metadata -o ./parsed-results
+
+# Or use the built version after building (no -- needed)
+npm run build
+node dist/cli/index.js parse ./salesforce-metadata -o ./parsed-results
 ```
 
 ### Generate Page Objects
 
 ```bash
 # Generate page objects from parsed metadata
-npm run dev generate-page-objects -i ./parsed-results -o ./my-test-project
+# Note: Use -- to separate npm arguments from CLI arguments
+npm run dev -- generate-page-objects --input ./parsed-results --output ./my-test-project
+
+# Or use short options
+npm run dev -- generate-page-objects -i ./parsed-results -o ./my-test-project
+
+# Or use the built version
+node dist/cli/index.js generate-page-objects -i ./parsed-results -o ./my-test-project
 ```
 
 ### Generate Test Specifications
 
 ```bash
 # Generate test specifications from parsed metadata
-npm run dev generate-tests -i ./parsed-results -o ./my-test-project
+# Note: Use -- to separate npm arguments from CLI arguments
+npm run dev -- generate-tests ./parsed-results ./my-test-project
 
-# With options
-npm run dev generate-tests -i ./parsed-results -o ./my-test-project --auth-approach helpers --no-fixtures
+# Or use options
+npm run dev -- generate-tests --input ./parsed-results --output ./my-test-project
+
+# With additional options
+npm run dev -- generate-tests ./parsed-results ./my-test-project --auth-approach helpers --no-fixtures
+
+# Or use the built version
+node dist/cli/index.js generate-tests ./parsed-results ./my-test-project
 ```
 
 #### Test Generation Options

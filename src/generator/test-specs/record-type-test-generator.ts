@@ -119,7 +119,6 @@ function generateRecordTypePicklistValuesTestCase(objectDef: ObjectDefinition, r
   const objectName = objectDef.fullName;
   const pageObjectName = `${objectName}Page`;
   const pageVar = `${objectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_page_rt_${testIndex}`;
-  const picklistFields = recordType.picklistValues?.map(pv => pv.picklist).join(', ') || 'Status';
   
   return `test('should verify picklist values for record type ${recordType.fullName} @record-type @${objectDef.fullName}', async ({ page, testData }) => {
     const recordId = await testData.create${objectDef.fullName}({
