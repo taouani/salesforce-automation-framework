@@ -3,7 +3,28 @@
     "allow": [
       "Bash(xargs grep *)",
       "Bash(npm run *)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Bash(git check-ignore *)",
+      "Bash(git checkout *)",
+      "Bash(npm install *)",
+      "Bash(git stash *)",
+      "Bash(npx vitest *)",
+      "Bash(node dist/cli/index.js --help)",
+      "Bash(rm -rf /tmp/sf-init-smoke)",
+      "Bash(mkdir -p /tmp/sf-init-smoke)",
+      "Read(//tmp/**)",
+      "Bash(node /c/Projects/salesforce-automation-framework/dist/cli/index.js init)",
+      "Bash(node /c/Projects/salesforce-automation-framework/dist/cli/index.js init --force)",
+      "Bash(rm -rf /tmp/sf-build-smoke)",
+      "Bash(mkdir -p /tmp/sf-build-smoke)",
+      "Bash(node /c/Projects/salesforce-automation-framework/dist/cli/index.js build)",
+      "Bash(rm -rf /tmp/sf-out-new)",
+      "Bash(node dist/cli/index.js generate-page-objects -i ./parsed-results -o /tmp/sf-out-new)",
+      "Bash(node dist/cli/index.js generate-tests ./parsed-results /tmp/sf-out-new)",
+      "Bash(rm -rf /tmp/sf-out-old)",
+      "Bash(node dist/cli/index.js generate-page-objects -i ./parsed-results -o /tmp/sf-out-old)",
+      "Bash(node dist/cli/index.js generate-tests ./parsed-results /tmp/sf-out-old)",
+      "Bash(git add *)"
     ]
   },
   "enabledPlugins": {
