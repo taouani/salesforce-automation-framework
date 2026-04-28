@@ -1,0 +1,10 @@
+{
+  "metadataPath": "./salesforce-metadata",
+  "parsedResultsDir": "./parsed-results",
+  "generatedDir": "./generated",
+  "projectName": "salesforce-tests",
+  "authApproach": "both",
+  "includeFixtures": true,
+  "includeTestData": true,
+  "concurrency": 10
+}
