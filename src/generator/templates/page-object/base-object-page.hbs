@@ -95,6 +95,76 @@ export abstract class BaseObjectPage {
   }
 
   /**
+   * Resolves a Salesforce field by its API name.
+   *
+   * Tries the most specific selectors first (Lightning record edit forms
+   * scope inputs by `field-name`), then falls back to common alternatives.
+   * Use this when the field's translated label may vary across orgs/locales.
+   */
+  protected fieldByApiName(apiName: string) {
+    const selector = [
+      `lightning-input-field[field-name="${apiName}"]`,
+      `lightning-input[name="${apiName}"]`,
+      `lightning-textarea[name="${apiName}"]`,
+      `lightning-combobox[name="${apiName}"]`,
+      `[data-field-api-name="${apiName}"]`,
+      `[data-field="${apiName}"]`,
+      `input[name="${apiName}"]`,
+      `textarea[name="${apiName}"]`,
+      `select[name="${apiName}"]`,
+    ].join(', ');
+    return this.page.locator(selector).first();
+  }
+
+  /**
+   * Fills a field by Salesforce API name (e.g. `Name`, `Custom_Field__c`).
+   * Prefer this over `fillField` when locale-translated labels may differ.
+   */
+  async fillFieldByApiName(apiName: string, value: string): Promise<void> {
+    const field = this.fieldByApiName(apiName);
+    await field.waitFor({ state: 'visible' });
+    // Drill into the inner editable element when the wrapper is a Lightning component.
+    const editable = field.locator('input, textarea').first();
+    if (await editable.count()) {
+      await editable.fill(value);
+    } else {
+      await field.fill(value);
+    }
+  }
+
+  /**
+   * Returns the current value of a field by API name.
+   */
+  async getFieldValueByApiName(apiName: string): Promise<string> {
+    const field = this.fieldByApiName(apiName);
+    await field.waitFor({ state: 'visible' });
+    const editable = field.locator('input, textarea').first();
+    if (await editable.count()) {
+      return await editable.inputValue();
+    }
+    return await field.inputValue();
+  }
+
+  /**
+   * Returns a locator for any Salesforce inline field error. Test bodies can
+   * `expect(this.fieldErrorMessage()).toBeVisible()` after a save attempt.
+   */
+  fieldErrorMessage() {
+    return this.page
+      .locator('.slds-form-element__has-error, [data-error-message], [role="alert"]')
+      .first();
+  }
+
+  /**
+   * Returns a locator for inline error text on a specific field by API name.
+   */
+  fieldErrorByApiName(apiName: string) {
+    return this.fieldByApiName(apiName)
+      .locator('.slds-form-element__help, [data-error-message], [aria-live="assertive"]')
+      .first();
+  }
+
+  /**
    * Waits for modal to appear
    */
   async waitForModal(): Promise<void> {

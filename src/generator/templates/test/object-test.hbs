@@ -15,6 +15,9 @@ import { {{pageObjectName}} } from '{{relativePath}}pages/objects/{{pageObjectFi
 import { {{this.className}} } from '{{../relativePath}}pages/objects/{{this.fileName}}.js';
 {{/each}}
 {{/if}}
+{{#if loginAsImport}}
+import { loginAs } from '{{relativePath}}utils/login-helpers.js';
+{{/if}}
 
 // <SF-SCANNER:USER-CODE id="imports">
 // </SF-SCANNER:USER-CODE>
