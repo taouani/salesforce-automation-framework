@@ -131,21 +131,59 @@ URL, then drove the page with a Playwright MCP browser. Findings:
 | D | `nillable=false && createable=true → required=true` | `*Account Currency` rendered with the asterisk despite XML not flagging it as required |
 | C | Picklist test pattern: open the combobox, assert option labels via `page.getByRole('option', { name: /^X$/ })` | Industry combobox opened to a `[role="option"]` listbox of real values (Agriculture, Apparel, Banking, …) |
 
-### New limitation surfaced
+### Person Account variant (re-verified the same day)
 
-`AccountSource` is present in the describe payload (14 active values) but
-not on the default Lightning page layout for this org. Picklist tests for
-fields that aren't on the create-page layout will fail. The fix is either:
+Repeated the run against the same sandbox with the Person Account record
+type preselected via
+`?recordTypeId=<id>&useRecordTypeCheck=1` (record-type IDs are queried
+through the same `sf` session via REST: `SELECT Id, Name, IsPersonType
+FROM RecordType WHERE SObjectType='Account'`). Findings:
 
-- Adjust the page layout to expose the field, or
-- Use the framework's `// <SF-SCANNER:USER-CODE>` block to navigate to a
-  layout that does expose it (e.g. an existing record's edit page) before
-  asserting picklist values.
+- The modal title flipped to `"New Client: Person Account"` — the
+  framework's URL pattern works for record-type-driven layouts.
+- The form is a totally different page-layout assignment: `*Client Name`
+  is now a composite field split into Salutation / First Name /
+  `*Last Name`, and the layout exposes Person-Account-specific fields
+  (Diorometer, Segment, Waist Measurement Gender/Unit, Expected Category
+  1/2/3, Main Boutique, Preferred Store 2/3, …).
+- **Required-field assertion still matches:** `*Last Name` rendered the
+  same `"Complete this field."` text under the field after Save was
+  clicked. The Phase C regex still hits.
+- **Page-level toast:** Salesforce additionally rendered a
+  `"We hit a snag." / "Review the following fields"` summary listing
+  `Client Name` and `Travel Documents`. The latter wasn't even on the
+  visible form — a second case of the describe-vs-layout gap (Travel
+  Documents must be on a different section/layout that wasn't rendered
+  here). Phase C tests don't depend on this toast text; they assert the
+  inline error directly under the field, which is locale-stable.
+- **Default picklist values were observable:** the Segment combobox
+  rendered `"Prospect"` instead of `"--None--"`. Phase D's
+  `defaultValue: true` flag in the enriched picklist payload would let
+  generators recognize that pre-fill state in future iterations.
 
-This is a describe-vs-page-layout distinction the framework can't resolve
-from XML metadata alone — even live `--org` enrichment doesn't cover
-layout assignments. Future work: parse FlexiPages / page layouts and
-filter picklist tests to fields actually rendered on the create form.
+### Known limitation: describe vs. page layout
+
+Surfaced by both record-type runs:
+
+- `AccountSource` is in the describe payload (14 active values) but
+  isn't on this org's create-page layout for either Business Account or
+  Person Account. Picklist tests for fields off the create form will
+  fail.
+- Conversely, `Travel Documents` is required on Person Account per the
+  page-level toast, but doesn't appear in the rendered form layout for a
+  fresh-create flow. Required-field tests for fields off the visible
+  layout would never see the inline error and would time out.
+
+Mitigations available today:
+
+- Adjust the org's page layout to expose the field, or
+- Edit the test inside its `// <SF-SCANNER:USER-CODE>` block to navigate
+  to a layout that does expose the field before asserting.
+
+Future work: parse FlexiPages / standard page layouts and intersect with
+the describe field set so the framework only emits picklist /
+required-field tests for fields actually rendered on the create form
+(or routes them through an explicit "different layout" preamble).
 
 ## Troubleshooting
 

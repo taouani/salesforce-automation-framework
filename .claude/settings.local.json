@@ -71,7 +71,9 @@
       "mcp__plugin_playwright_playwright__browser_take_screenshot",
       "Bash(git restore *)",
       "Bash(rm -f phase-e-live-form.png)",
-      "Bash(rm -rf .playwright-mcp)"
+      "Bash(rm -rf .playwright-mcp)",
+      "Bash(rm -f C:/Projects/salesforce-automation-framework/phase-e-person-account.png C:/Projects/salesforce-automation-framework/phase-e-person-account-required.png C:/Projects/salesforce-automation-framework/phase-e-person-account-errors.png)",
+      "Bash(rm -rf C:/Projects/salesforce-automation-framework/.playwright-mcp)"
     ]
   },
   "enabledPlugins": {
