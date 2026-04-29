@@ -9,6 +9,7 @@ import { logger } from '../../utils/logger.js';
 import { renderTemplate } from '../template-engine.js';
 import { readTemplate } from '../template-loader.js';
 import { writeGeneratedFile } from '../file-generator.js';
+import { withUserCodeTail } from '../merge/section-markers.js';
 import type {
   TestGenerationResult,
   TestGroupDefinition,
@@ -54,6 +55,22 @@ export interface TestGenerationOptions {
   authApproach?: 'helpers' | 'configuredConnection' | 'both';
   includeFixtures?: boolean;
   includeTestData?: boolean;
+}
+
+/**
+ * Wraps every test's `testCase` string in a USER-CODE marker block so that
+ * hand-edited assertions or cleanup survive regeneration. Mutates the groups
+ * in place.
+ */
+function decorateGroupsWithUserCodeBlocks(groups: TestGroupDefinition[]): TestGroupDefinition[] {
+  for (const group of groups) {
+    for (const test of group.tests) {
+      if (typeof test.testCase === 'string' && test.testCase.length > 0) {
+        test.testCase = withUserCodeTail(test.testCase, `${test.name}-extra`);
+      }
+    }
+  }
+  return groups;
 }
 
 /**
@@ -360,7 +377,7 @@ async function generateObjectTestFile(
     pageObjectFileName: pageObjectFileName,
     pageObjectImport: true,
     additionalImports,
-    testGroups,
+    testGroups: decorateGroupsWithUserCodeBlocks(testGroups),
     relativePath: '../../../', // Tests/Objects/ObjectName/ -> 3 levels up
   });
 
@@ -390,7 +407,7 @@ async function generateComponentTestFile(
     : String((componentDef as AuraComponentDefinition).metadata?.name || 'Unknown');
   
   const testGroup = generateComponentTestGroup(componentName, componentType);
-  
+
   // Render template
   const template = await readTemplate('test/object-test.hbs');
   const content = renderTemplate(template, {
@@ -398,7 +415,7 @@ async function generateComponentTestFile(
     pageObjectName: `${componentName}ComponentPage`,
     pageObjectFileName: `${componentName.toLowerCase()}-component-page`,
     pageObjectImport: false,
-    testGroups: [testGroup],
+    testGroups: decorateGroupsWithUserCodeBlocks([testGroup]),
     relativePath: '../../../', // tests/Components/lwc/ or tests/Components/aura/ -> 3 levels up to root
   });
 
@@ -426,7 +443,7 @@ async function generateFlowTestFile(
     'Unknown'
   );
   const testGroup = generateFlowTestGroup(flowDef);
-  
+
   // Render template
   const template = await readTemplate('test/object-test.hbs');
   const content = renderTemplate(template, {
@@ -434,7 +451,7 @@ async function generateFlowTestFile(
     pageObjectName: `${flowName}FlowPage`,
     pageObjectFileName: `${flowName.toLowerCase()}-flow-page`,
     pageObjectImport: false,
-    testGroups: [testGroup],
+    testGroups: decorateGroupsWithUserCodeBlocks([testGroup]),
     relativePath: '../../../', // Tests/flows/FlowName/ -> 3 levels up
   });
 

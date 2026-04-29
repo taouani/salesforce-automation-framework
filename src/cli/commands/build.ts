@@ -11,6 +11,7 @@ import { join } from 'path';
 import { logger } from '../../utils/logger.js';
 import { loadConfig, ConfigError, type LoadConfigOptions } from '../../config/loader.js';
 import type { SfScannerConfig } from '../../config/schema.js';
+import { setDefaultMergeMode } from '../../generator/file-generator.js';
 
 import { runScan } from './scan.js';
 import { runParseXml } from './parse-xml.js';
@@ -48,12 +49,17 @@ export async function runBuild(options: BuildOptions = {}): Promise<void> {
 
   const { config, configPath } = await loadConfig(loaderOptions);
 
+  if (options.force) {
+    setDefaultMergeMode('overwrite');
+  }
+
   logger.info(
     {
       configPath,
       metadataPath: config.metadataPath,
       parsedResultsDir: config.parsedResultsDir,
       generatedDir: config.generatedDir,
+      mergeMode: options.force ? 'overwrite' : 'preserve-user-sections',
     },
     'Starting build',
   );
