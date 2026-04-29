@@ -45,6 +45,7 @@ program
   .option('--skip-page-objects', 'Skip page object generation', false)
   .option('--skip-tests', 'Skip test generation', false)
   .option('--force', 'Force overwrite the project skeleton if it exists', false)
+  .option('--org <alias>', 'Enrich parsed metadata with live org describe (uses local sf CLI auth)')
   .action(async (options: BuildOptions) => buildAction(options));
 
 // init
