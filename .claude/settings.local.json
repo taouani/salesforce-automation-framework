@@ -24,7 +24,22 @@
       "Bash(rm -rf /tmp/sf-out-old)",
       "Bash(node dist/cli/index.js generate-page-objects -i ./parsed-results -o /tmp/sf-out-old)",
       "Bash(node dist/cli/index.js generate-tests ./parsed-results /tmp/sf-out-old)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(sed -i \"s|'./dist/generator/merge/section-markers.js'|'C:/Projects/salesforce-automation-framework/dist/generator/merge/section-markers.js'|\" /tmp/marker-smoke.mjs)",
+      "Bash(node /tmp/marker-smoke.mjs)",
+      "Bash(cp /tmp/marker-smoke.mjs C:/Projects/salesforce-automation-framework/marker-smoke.mjs)",
+      "Bash(sed -i \"s|'C:/Projects/salesforce-automation-framework/dist/generator/merge/section-markers.js'|'./dist/generator/merge/section-markers.js'|\" marker-smoke.mjs)",
+      "Bash(node marker-smoke.mjs)",
+      "Bash(rm marker-smoke.mjs)",
+      "Bash(grep -n \"return \\\\`test\\(\" C:/Projects/salesforce-automation-framework/src/generator/test-specs/crud-test-generator.ts)",
+      "Bash(rm -rf /tmp/sf-merge-v1)",
+      "Bash(node dist/cli/index.js generate-tests ./parsed-results /tmp/sf-merge-v1)",
+      "Bash(xargs cat *)",
+      "Bash(rm -rf /tmp/sf-merge-v2-fresh)",
+      "Bash(cp -r /tmp/sf-merge-v1 /tmp/sf-merge-v2-fresh)",
+      "Bash(node dist/cli/index.js generate-tests ./parsed-results /tmp/sf-merge-v2-fresh)",
+      "Bash(node ./force-test.mjs)"
     ]
   },
   "enabledPlugins": {
