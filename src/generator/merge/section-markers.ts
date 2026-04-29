@@ -98,15 +98,19 @@ export function parseMarkers(text: string): MarkerSection[] {
       const openStart = openMarker.index;
       const openEnd = openMarker.index + openMarker.length;
       const contentStart = advancePastEol(text, openEnd);
-      const closeStart = marker.index;
+      // The close marker may be preceded by indentation on its own line.
+      // Treat the content as ending at the start of that line so we don't
+      // accumulate the close marker's indent into the user-content slice
+      // on round trips.
+      const closeLineStart = lineStart(text, marker.index);
       const closeEnd = advancePastEol(text, marker.index + marker.length);
 
-      const inner = text.slice(contentStart, closeStart);
+      const inner = text.slice(contentStart, closeLineStart);
       sections.push({
         id: openMarker.id!,
         openStart,
         contentStart,
-        contentEnd: closeStart,
+        contentEnd: closeLineStart,
         closeEnd,
         content: stripTrailingNewline(inner),
       });
@@ -182,6 +186,15 @@ function advancePastEol(text: string, index: number): number {
   if (text[index] === '\r' && text[index + 1] === '\n') return index + 2;
   if (text[index] === '\n' || text[index] === '\r') return index + 1;
   return index;
+}
+
+/** Walks back from `index` to the start of the line it falls on. */
+function lineStart(text: string, index: number): number {
+  let i = index;
+  while (i > 0 && text[i - 1] !== '\n' && text[i - 1] !== '\r') {
+    i--;
+  }
+  return i;
 }
 
 function stripTrailingNewline(s: string): string {

@@ -1,28 +1,36 @@
 /**
  * Flow Test Generator
- * Generates Flow execution test cases
+ *
+ * Emits Playwright tests for Salesforce Flows. The screen-navigation test
+ * walks each parsed screen, fills declared fields by their label (the most
+ * stable Salesforce screen-flow selector), clicks Next/Finish, and asserts
+ * the flow completes. Decision-path and error-handling tests provide a
+ * skeleton with USER-CODE blocks so authors can wire up rule-tripping data
+ * without losing their work on regeneration.
  */
 
 import type { FlowTestDefinition, TestGroupDefinition } from '../../types/test-generation.js';
-import type { FlowDefinition, FlowScreenDefinition, FlowDecisionPathDefinition } from '../../types/flow-parsed.js';
+import type {
+  FlowDefinition,
+  FlowScreenDefinition,
+  FlowDecisionPathDefinition,
+} from '../../types/flow-parsed.js';
 import { generateTestTags } from '../../utils/test-tag-generator.js';
 
 export function convertFlowToTests(flowDef: FlowDefinition): FlowTestDefinition[] {
   const flowName = String(flowDef.fullName || flowDef.name || 'Unknown');
   const tests: FlowTestDefinition[] = [];
-  
-  // Execution test (existing)
+
   tests.push({
     name: `test-flow-${flowName.toLowerCase()}-execution`,
     type: 'Flow',
     flowName,
     testScenario: 'execution',
     flowInputs: {},
-    testCase: generateFlowTestCase(flowName),
+    testCase: generateFlowExecutionTestCase(flowName),
     tags: generateTestTags('Flow', { flowName }),
   });
-  
-  // Screen navigation tests (if flow has screens)
+
   if (flowDef.screens && flowDef.screens.length > 0) {
     tests.push({
       name: `test-flow-${flowName.toLowerCase()}-screen-navigation`,
@@ -34,8 +42,7 @@ export function convertFlowToTests(flowDef: FlowDefinition): FlowTestDefinition[
       tags: generateTestTags('Flow', { flowName }),
     });
   }
-  
-  // Decision path tests (if flow has decision paths)
+
   if (flowDef.decisionPaths && flowDef.decisionPaths.length > 0) {
     tests.push({
       name: `test-flow-${flowName.toLowerCase()}-decision-paths`,
@@ -47,8 +54,7 @@ export function convertFlowToTests(flowDef: FlowDefinition): FlowTestDefinition[
       tags: generateTestTags('Flow', { flowName }),
     });
   }
-  
-  // Error handling test
+
   tests.push({
     name: `test-flow-${flowName.toLowerCase()}-error-handling`,
     type: 'Flow',
@@ -58,106 +64,140 @@ export function convertFlowToTests(flowDef: FlowDefinition): FlowTestDefinition[
     testCase: generateFlowErrorHandlingTestCase(flowName),
     tags: generateTestTags('Flow', { flowName }),
   });
-  
+
   return tests;
 }
 
-function generateFlowTestCase(flowName: string): string {
-  return `test('should execute flow ${flowName} @flow @flow:${flowName}', async ({ page }) => {
-    // Navigate to flow
-    await page.goto(\`/lightning/r/Flow/${flowName}/view\`);
-    
-    // Execute flow with inputs
-    // Verify flow completes successfully
-    await expect(page.locator('text=Flow completed')).toBeVisible();
+function flowUrl(flowName: string): string {
+  return `/flow/${flowName}`;
+}
+
+function generateFlowExecutionTestCase(flowName: string): string {
+  // The flow URL pattern depends on how the flow is launched (direct /flow/X
+  // vs embedded in a Lightning page). The USER-CODE block lets authors swap
+  // in the right entry point for their org without losing it on regen.
+  return `test('should launch flow ${flowName} @flow @flow:${flowName}', async ({ page }) => {
+    // <SF-SCANNER:USER-CODE id="flow-${flowName.toLowerCase()}-launch">
+    // Default: direct flow runner URL. Replace with your own entry point if
+    // the flow is launched from a list view button or auto-launched.
+    await page.goto(\`${flowUrl(flowName)}\`);
+    // </SF-SCANNER:USER-CODE>
+
+    // Either the flow renders its first screen (any heading is fine) or it
+    // completes immediately if it's autolaunched with no screens.
+    const heading = page.getByRole('heading').first();
+    const completion = page.getByText(/Flow completed|Your flow finished/i).first();
+    await expect(heading.or(completion)).toBeVisible({ timeout: 15000 });
   });`;
 }
 
-function generateFlowScreenNavigationTestCase(flowName: string, screens: FlowScreenDefinition[]): string {
-  return `test('should navigate through flow screens ${flowName} @flow @flow:${flowName}', async ({ page }) => {
-    // Navigate to flow
-    await page.goto(\`/lightning/r/Flow/${flowName}/view\`);
-    
-    // Navigate through each screen
-    ${screens.map((screen, index) => {
+function generateFlowScreenNavigationTestCase(
+  flowName: string,
+  screens: FlowScreenDefinition[],
+): string {
+  const flowSlug = flowName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+  const screenSteps = screens
+    .map((screen, index) => {
       const screenName = screen.screenElement || `Screen${index + 1}`;
       const isLast = index === screens.length - 1;
-      return `// Screen ${index + 1}: ${screenName}
-    await expect(page.locator('text=${screenName}')).toBeVisible();
-    ${screen.fields && screen.fields.length > 0 ? `// Fill screen fields
-    ${screen.fields.map(field => {
-      const fieldName = field.name || field.label || 'Field';
-      return `await page.fill('[data-field="${fieldName}"]', 'Test Value');`;
-    }).join('\n    ')}` : '// No fields on this screen'}
-    ${!isLast ? `// Click Next to proceed to next screen
-    await page.click('button:has-text("Next")');` : `// Click Finish on last screen
-    await page.click('button:has-text("Finish")');`}`;
-    }).join('\n    ')}
-    
-    // Verify flow completed successfully
-    await expect(page.locator('text=Flow completed')).toBeVisible();
+      const buttonName = isLast ? 'Finish' : 'Next';
+      const fields = (screen.fields ?? []).filter(Boolean);
+
+      const fieldFills = fields.length
+        ? fields
+            .map((field) => {
+              const label = (field.label || field.name || '').replace(/'/g, "\\'");
+              const sample = sampleValueForFlowField(field);
+              return `    await page.getByLabel('${label}').fill(${sample});`;
+            })
+            .join('\n')
+        : `    // (no fields parsed on this screen)`;
+
+      return `    // Screen ${index + 1}: ${screenName.replace(/'/g, "\\'")}
+${fieldFills}
+    // <SF-SCANNER:USER-CODE id="flow-${flowSlug}-screen-${index + 1}-extra">
+    // </SF-SCANNER:USER-CODE>
+    await page.getByRole('button', { name: /^${buttonName}$/i }).first().click();`;
+    })
+    .join('\n\n');
+
+  return `test('should navigate flow screens for ${flowName} @flow @flow:${flowName}', async ({ page }) => {
+    // <SF-SCANNER:USER-CODE id="flow-${flowSlug}-launch">
+    await page.goto(\`${flowUrl(flowName)}\`);
+    // </SF-SCANNER:USER-CODE>
+
+${screenSteps}
+
+    await expect(page.getByText(/Flow completed|Your flow finished/i).first()).toBeVisible({ timeout: 15000 });
   });`;
 }
 
-function generateFlowDecisionPathTestCase(flowName: string, decisionPaths: FlowDecisionPathDefinition[]): string {
-  return `test('should test flow decision paths ${flowName} @flow @flow:${flowName}', async ({ page, testData: _testData }) => {
-    // Navigate to flow
-    await page.goto(\`/lightning/r/Flow/${flowName}/view\`);
-    
-    // Test each decision path
-    ${decisionPaths.map((path, index) => {
+function generateFlowDecisionPathTestCase(
+  flowName: string,
+  decisionPaths: FlowDecisionPathDefinition[],
+): string {
+  const flowSlug = flowName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const decisions = decisionPaths
+    .map((path, index) => {
       const decisionElement = path.decisionElement || `Decision${index + 1}`;
-      const criteria = path.criteria ? JSON.stringify(path.criteria) : 'Default path';
-      return `// Decision Path ${index + 1}: ${decisionElement}
-    // Set up test data to trigger this decision path
-    ${path.criteria ? `// Criteria: ${criteria}` : '// Default path'}
-    // Verify flow follows expected path based on decision outcome
-    ${path.outcomes && path.outcomes.length > 0 ? path.outcomes.map((outcome) => {
-      const outcomeType = outcome.outcomeType || 'Default';
-      const outcomeLabel = outcome.label || outcomeType;
-      return `// Test ${outcomeType} outcome: ${outcomeLabel}
-    // Set conditions to trigger ${outcomeType} path
-    // Verify flow follows ${outcomeLabel} path`;
-    }).join('\n    ') : '// Verify flow follows expected path'}
-    `;
-    }).join('\n    ')}
-    
-    // Verify flow completed successfully
-    await expect(page.locator('text=Flow completed')).toBeVisible();
+      const safeId = `${flowSlug}-decision-${index + 1}`;
+      return `    // Decision ${index + 1}: ${decisionElement.replace(/'/g, "\\'")}
+    // <SF-SCANNER:USER-CODE id="${safeId}">
+    // Provide field-fills that route through this decision branch, then
+    // assert the resulting screen/route is visible.
+    // </SF-SCANNER:USER-CODE>`;
+    })
+    .join('\n\n');
+
+  return `test('should exercise flow decision paths for ${flowName} @flow @flow:${flowName}', async ({ page }) => {
+    // <SF-SCANNER:USER-CODE id="flow-${flowSlug}-decision-launch">
+    await page.goto(\`${flowUrl(flowName)}\`);
+    // </SF-SCANNER:USER-CODE>
+
+${decisions}
+
+    await expect(page.getByText(/Flow completed|Your flow finished/i).first()).toBeVisible({ timeout: 15000 });
   });`;
 }
 
 function generateFlowErrorHandlingTestCase(flowName: string): string {
-  return `test('should handle flow errors ${flowName} @flow @flow:${flowName}', async ({ page }) => {
-    // Navigate to flow
-    await page.goto(\`/lightning/r/Flow/${flowName}/view\`);
-    
-    // Test error scenarios
-    // Scenario 1: Invalid input values
-    await page.fill('[data-field="InvalidField"]', 'Invalid Value');
-    await page.click('button:has-text("Next")');
-    // Verify error message is displayed
-    await expect(page.locator('text=Error')).toBeVisible();
-    
-    // Scenario 2: Required field missing
-    // Leave required fields empty
-    await page.click('button:has-text("Next")');
-    // Verify validation error
-    await expect(page.locator('text=Required field')).toBeVisible();
-    
-    // Scenario 3: API/DML errors
-    // Trigger flow with data that causes API errors
-    // Verify error handling and error messages
-    
-    // Verify error recovery (if applicable)
-    // Flow should handle errors gracefully
+  const flowSlug = flowName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  return `test('should surface errors gracefully for ${flowName} @flow @flow:${flowName}', async ({ page }) => {
+    // <SF-SCANNER:USER-CODE id="flow-${flowSlug}-error-launch">
+    // Replace with the flow entry point and the field-fills that should
+    // trigger a validation failure or DML error.
+    await page.goto(\`${flowUrl(flowName)}\`);
+    // </SF-SCANNER:USER-CODE>
+
+    // Salesforce screen flows render errors either in an inline alert or
+    // via a fault path. Either pattern is acceptable.
+    const errorAlert = page.getByRole('alert').first();
+    const errorText = page.getByText(/error|failed|please correct/i).first();
+    await expect(errorAlert.or(errorText)).toBeVisible({ timeout: 15000 });
   });`;
+}
+
+/**
+ * Picks a plausible default value for a flow screen field based on its
+ * declared type. Returns a string literal expression suitable for embedding
+ * in generated TypeScript (so callers concatenate it raw).
+ */
+function sampleValueForFlowField(field: { dataType?: string; type?: string }): string {
+  const t = String(field.dataType || field.type || '').toLowerCase();
+  if (t.includes('email')) return `'test@example.com'`;
+  if (t.includes('url')) return `'https://example.com'`;
+  if (t.includes('phone')) return `'415-555-0100'`;
+  if (t.includes('number') || t.includes('currency')) return `'42'`;
+  if (t.includes('date')) return `'2026-01-01'`;
+  if (t.includes('checkbox') || t.includes('boolean')) return `'true'`;
+  return `'Test Value'`;
 }
 
 export function generateFlowTestGroup(flowDef: FlowDefinition): TestGroupDefinition {
   const tests = convertFlowToTests(flowDef);
   const flowName = String(flowDef.fullName || flowDef.name || 'Unknown');
-  
+
   return {
     groupName: `Flow Tests - ${flowName}`,
     testType: 'Flow',
@@ -165,4 +205,3 @@ export function generateFlowTestGroup(flowDef: FlowDefinition): TestGroupDefinit
     tags: generateTestTags('Flow', { flowName }),
   };
 }
-

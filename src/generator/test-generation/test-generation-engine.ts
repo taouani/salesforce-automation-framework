@@ -20,6 +20,7 @@ import type { ObjectDefinition } from '../../types/xml-parsed.js';
 import type { LWCComponentDefinition } from '../../types/lwc-parsed.js';
 import type { AuraComponentDefinition } from '../../types/aura-parsed.js';
 import type { FlowDefinition } from '../../types/flow-parsed.js';
+import type { ProfileDefinition } from '../../types/profile-permissions.js';
 import { generateCRUDTestGroup } from '../test-specs/crud-test-generator.js';
 import { generateValidationRuleTestGroup } from '../test-specs/validation-rule-test-generator.js';
 import { generateRecordTypeTestGroup } from '../test-specs/record-type-test-generator.js';
@@ -27,6 +28,7 @@ import { generateFieldValidationTestGroup } from '../test-specs/field-validation
 import { generateRelationshipTestGroup } from '../test-specs/relationship-test-generator.js';
 import { generateComponentTestGroup } from '../test-specs/component-test-generator.js';
 import { generateFlowTestGroup } from '../test-specs/flow-test-generator.js';
+import { generatePermissionTestGroupsForProfiles } from '../test-specs/permission-test-generator.js';
 import { generateTestDataUtilitiesFile } from '../test-data/test-data-utilities-generator.js';
 import { generateTestFixturesFile } from '../test-fixtures/test-fixtures-generator.js';
 import { generateAuthenticationConfig } from '../test-data/authentication-config-generator.js';
@@ -47,6 +49,7 @@ export interface TestGenerationMetadata {
   lwcComponents?: LWCComponentDefinition[];
   auraComponents?: AuraComponentDefinition[];
   flows?: FlowDefinition[];
+  profiles?: ProfileDefinition[];
   relationshipMap?: Map<string, Array<{ fieldName: string; type: 'MasterDetail' | 'Lookup'; relatedObject: string }>>;
 }
 
@@ -235,6 +238,30 @@ export async function generateTests(
           errors.push({
             file: String(flowDef.fullName || 'Unknown'),
             message: `Failed to generate flow test file: ${error instanceof Error ? error.message : String(error)}`,
+            type: 'generation',
+            cause: error instanceof Error ? error : undefined,
+          });
+        }
+      }
+    }
+
+    // Generate per-profile permission test files
+    if (metadata.profiles && metadata.profiles.length > 0 && metadata.objects) {
+      const knownObjects = new Set(metadata.objects.map((o) => o.fullName));
+      for (const profile of metadata.profiles) {
+        try {
+          const testFile = await generatePermissionTestFile(profile, knownObjects, options);
+          if (testFile) {
+            generatedFiles.push({
+              path: testFile.path,
+              content: testFile.content,
+              type: 'test',
+            });
+          }
+        } catch (error) {
+          errors.push({
+            file: profile.fullName,
+            message: `Failed to generate permission test file: ${error instanceof Error ? error.message : String(error)}`,
             type: 'generation',
             cause: error instanceof Error ? error : undefined,
           });
@@ -459,6 +486,40 @@ async function generateFlowTestFile(
   const flowTestDir = join(options.outputDirectory, 'tests', 'flows', flowName);
   await mkdir(flowTestDir, { recursive: true });
   const filePath = join(flowTestDir, `${flowName.toLowerCase()}.spec.ts`);
+  await writeGeneratedFile(filePath, content, { format: true, fileType: 'typescript' });
+
+  return { path: filePath, content };
+}
+
+/**
+ * Generates a Playwright spec for one profile's object-level permissions.
+ * Returns null when the profile declares no overlapping object permissions.
+ */
+async function generatePermissionTestFile(
+  profile: ProfileDefinition,
+  knownObjects: Set<string>,
+  options: TestGenerationOptions,
+): Promise<{ path: string; content: string } | null> {
+  const groups = generatePermissionTestGroupsForProfiles([profile], knownObjects);
+  if (groups.length === 0) return null;
+
+  const profileSlug = profile.fullName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  const template = await readTemplate('test/object-test.hbs');
+  const content = renderTemplate(template, {
+    objectName: `${profile.fullName} Permissions`,
+    pageObjectImport: false,
+    loginAsImport: true,
+    testGroups: decorateGroupsWithUserCodeBlocks(groups),
+    relativePath: '../../../', // tests/Permissions/<profile>/ -> 3 levels up
+  });
+
+  const dir = join(options.outputDirectory, 'tests', 'Permissions', profileSlug);
+  await mkdir(dir, { recursive: true });
+  const filePath = join(dir, `${profileSlug}.spec.ts`);
   await writeGeneratedFile(filePath, content, { format: true, fileType: 'typescript' });
 
   return { path: filePath, content };

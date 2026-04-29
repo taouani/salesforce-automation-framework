@@ -44,15 +44,26 @@ export async function runGenerateTests(
   await mkdir(join(outputPath, 'utils'), { recursive: true });
   await mkdir(join(outputPath, 'fixtures'), { recursive: true });
 
-  // Load object metadata
+  // Load object + profile metadata
   const xmlResultsPath = join(inputPath, 'parsed-xml-results.json');
   let objects: unknown[] = [];
+  let profiles: unknown[] = [];
   if (existsSync(xmlResultsPath)) {
     try {
       const xmlResultsContent = await readFile(xmlResultsPath, 'utf-8');
       const xmlResults = JSON.parse(xmlResultsContent);
       objects = xmlResults.objects || [];
-      logger.info({ count: objects.length }, 'Loaded object metadata');
+      // Profiles may be persisted as either a plain array or a { name -> def } map.
+      const rawProfiles = xmlResults.profiles;
+      if (Array.isArray(rawProfiles)) {
+        profiles = rawProfiles;
+      } else if (rawProfiles && typeof rawProfiles === 'object') {
+        profiles = Object.values(rawProfiles);
+      }
+      logger.info(
+        { objects: objects.length, profiles: profiles.length },
+        'Loaded XML metadata',
+      );
     } catch (error) {
       logger.warn({ xmlResultsPath, error }, 'Failed to load XML results');
     }
@@ -163,6 +174,7 @@ export async function runGenerateTests(
       lwcComponents: lwcComponents as any,
       auraComponents: auraComponents as any,
       flows: flows as any,
+      profiles: profiles as any,
       relationshipMap,
     },
     {

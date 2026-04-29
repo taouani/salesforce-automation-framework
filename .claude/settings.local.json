@@ -39,7 +39,13 @@
       "Bash(rm -rf /tmp/sf-merge-v2-fresh)",
       "Bash(cp -r /tmp/sf-merge-v1 /tmp/sf-merge-v2-fresh)",
       "Bash(node dist/cli/index.js generate-tests ./parsed-results /tmp/sf-merge-v2-fresh)",
-      "Bash(node ./force-test.mjs)"
+      "Bash(node ./force-test.mjs)",
+      "Bash(rm -rf /tmp/sf-phaseC)",
+      "Bash(node dist/cli/index.js generate-tests ./parsed-results /tmp/sf-phaseC)",
+      "Bash(node dist/cli/index.js generate-page-objects -i ./parsed-results -o /tmp/sf-phaseC)",
+      "Bash(cp -r /tmp/sf-phaseC /tmp/sf-phaseC-2)",
+      "Bash(node dist/cli/index.js generate-tests ./parsed-results /tmp/sf-phaseC-2)",
+      "Bash(node dist/cli/index.js generate-page-objects -i ./parsed-results -o /tmp/sf-phaseC-2)"
     ]
   },
   "enabledPlugins": {

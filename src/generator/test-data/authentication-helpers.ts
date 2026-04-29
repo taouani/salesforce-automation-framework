@@ -57,35 +57,6 @@ export async function authenticateWithUsernamePassword(): Promise<{ accessToken:
 }
 
 /**
- * Generates authentication helper for JWT bearer token flow
- */
-export function generateJWTAuthHelper(): AuthenticationHelperDefinition {
-  return {
-    helperName: 'authenticateWithJWT',
-    authType: 'jwt',
-    configVariables: ['SALESFORCE_CLIENT_ID', 'SALESFORCE_USERNAME', 'SALESFORCE_JWT_KEY_FILE', 'SALESFORCE_LOGIN_URL'],
-    implementation: `/**
- * Authenticates with Salesforce using JWT bearer token flow
- * @returns Promise with access token and instance URL
- */
-export async function authenticateWithJWT(): Promise<{ accessToken: string; instanceUrl: string }> {
-  const clientId = process.env.SALESFORCE_CLIENT_ID;
-  const username = process.env.SALESFORCE_USERNAME;
-  const jwtKeyFile = process.env.SALESFORCE_JWT_KEY_FILE;
-
-  if (!clientId || !username || !jwtKeyFile) {
-    throw new Error('SALESFORCE_CLIENT_ID, SALESFORCE_USERNAME, and SALESFORCE_JWT_KEY_FILE environment variables are required');
-  }
-
-  // JWT authentication requires additional libraries (jsonwebtoken, fs)
-  // This is a simplified version - actual implementation would need JWT signing
-  // Note: SALESFORCE_LOGIN_URL will be used when JWT authentication is fully implemented
-  throw new Error('JWT authentication requires additional setup. Please use username/password authentication or configured connection.');
-}`,
-  };
-}
-
-/**
  * Generates authentication helper for configured org connection
  */
 export function generateConfiguredConnectionAuthHelper(): AuthenticationHelperDefinition {
@@ -123,7 +94,6 @@ export function generateAuthenticationHelpers(
 
   if (authApproach === 'helpers' || authApproach === 'both') {
     helpers.push(generateUsernamePasswordAuthHelper());
-    helpers.push(generateJWTAuthHelper());
   }
 
   if (authApproach === 'configuredConnection' || authApproach === 'both') {
