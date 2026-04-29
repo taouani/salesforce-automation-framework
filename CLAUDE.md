@@ -105,6 +105,7 @@ Tracked in `agent-os/product/roadmap.md`; documented as future work in the READM
 - faker-js integration for test data (the dep is declared but no factories use it).
 - Validation-rule-aware test data synthesis.
 - Parser coverage for FlexiPages, Custom Labels, Custom Metadata Types, Sharing Rules, Approval Processes, Quick Actions, Permission Set Groups, Custom Permissions.
+- Page-layout-aware test filtering. Picklist tests assume the field is rendered on the create form; describe enrichment doesn't know about layout assignments, so tests for fields off the default layout fail (verified live with `AccountSource` against `test-automation`). Future fix: parse FlexiPages + standard page layouts, intersect with describe field set.
 - Wiring the already-computed `apex-dependency-graph.json` / `aura-to-object` / `flow-to-object` graphs into the generators.
 - Automated CI integration test against a sandbox.
 

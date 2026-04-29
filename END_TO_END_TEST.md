@@ -117,6 +117,36 @@ Run `node ./dist/cli/index.js build` again — the `loginAs(...)` and the
 extra `expect(...)` will survive. Pass `--force` to wipe everything and
 regenerate clean.
 
+## Live verification record (2026-04-29)
+
+We bootstrapped a Lightning session against the `test-automation` alias
+via `sf` CLI + a `secur/frontdoor.jsp?sid=...&retURL=/lightning/o/Account/new`
+URL, then drove the page with a Playwright MCP browser. Findings:
+
+| Phase | Promise | Live evidence |
+| --- | --- | --- |
+| C | Required-field regex `/Complete this field\|This field is required\|You must enter a value/i` matches | Form rendered `"Complete this field."` verbatim under `*Client Name` |
+| C | `fieldErrorMessage()` selector (`.slds-form-element__has-error`, `[role="alert"]`) | Red error icon + matching slds class on the field |
+| D | Describe enrichment: org renamed Account → Client | Modal title was `New Client: Business Account` |
+| D | `nillable=false && createable=true → required=true` | `*Account Currency` rendered with the asterisk despite XML not flagging it as required |
+| C | Picklist test pattern: open the combobox, assert option labels via `page.getByRole('option', { name: /^X$/ })` | Industry combobox opened to a `[role="option"]` listbox of real values (Agriculture, Apparel, Banking, …) |
+
+### New limitation surfaced
+
+`AccountSource` is present in the describe payload (14 active values) but
+not on the default Lightning page layout for this org. Picklist tests for
+fields that aren't on the create-page layout will fail. The fix is either:
+
+- Adjust the page layout to expose the field, or
+- Use the framework's `// <SF-SCANNER:USER-CODE>` block to navigate to a
+  layout that does expose it (e.g. an existing record's edit page) before
+  asserting picklist values.
+
+This is a describe-vs-page-layout distinction the framework can't resolve
+from XML metadata alone — even live `--org` enrichment doesn't cover
+layout assignments. Future work: parse FlexiPages / page layouts and
+filter picklist tests to fields actually rendered on the create form.
+
 ## Troubleshooting
 
 **`'sf' CLI not found on PATH`** — `--org` enrichment needs the Salesforce
