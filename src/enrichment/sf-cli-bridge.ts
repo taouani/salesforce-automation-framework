@@ -18,6 +18,16 @@ const execFileP = promisify(execFile);
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+/**
+ * On Windows the `sf` CLI ships as `sf.cmd` (a batch shim around node).
+ * `execFile` doesn't resolve shims like the shell does, so we have to point
+ * at the `.cmd` extension directly. Linux/macOS use a real `sf` binary.
+ */
+function resolveSfBinaryName(override: string | undefined): string {
+  if (override) return override;
+  return process.platform === 'win32' ? 'sf.cmd' : 'sf';
+}
+
 export class SfCliError extends Error {
   constructor(
     message: string,
@@ -63,6 +73,20 @@ export interface FetchOrgCredentialsOptions {
 }
 
 /**
+ * Salesforce CLI aliases must match the Username Alias rules: letters, digits,
+ * underscores, and dashes. Reject anything else before we hand the value to a
+ * shell-mode child process — defense in depth even though Zod validates the
+ * config-supplied value.
+ */
+function assertSafeAlias(alias: string): void {
+  if (!/^[A-Za-z0-9_-]+$/.test(alias)) {
+    throw new SfCliError(
+      `Org alias "${alias}" contains characters that are not letters, digits, '-' or '_'.`,
+    );
+  }
+}
+
+/**
  * Resolves credentials for `alias` via `sf org display`. Throws SfCliError
  * with a descriptive message on missing CLI / unknown alias / expired auth.
  */
@@ -73,17 +97,23 @@ export async function fetchOrgCredentials(
   if (!alias || alias.trim() === '') {
     throw new SfCliError('Org alias is required');
   }
+  assertSafeAlias(alias);
 
-  const sfBinary = options.sfBinary ?? 'sf';
+  const sfBinary = resolveSfBinaryName(options.sfBinary);
   const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const fallbackApiVersion = options.fallbackApiVersion ?? '60.0';
+
+  // Node 18+ requires shell: true to execute .cmd shims (CVE-2024-27980).
+  // We've already restricted the alias to a safe character set above, so
+  // shell expansion can't be subverted via that argument.
+  const useShell = process.platform === 'win32';
 
   let stdout: string;
   try {
     const result = await execFileP(
       sfBinary,
       ['org', 'display', '--target-org', alias, '--json'],
-      { timeout, windowsHide: true, maxBuffer: 4 * 1024 * 1024 },
+      { timeout, windowsHide: true, maxBuffer: 4 * 1024 * 1024, shell: useShell },
     );
     stdout = result.stdout;
   } catch (error) {

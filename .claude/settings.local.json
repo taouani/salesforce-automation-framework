@@ -54,7 +54,26 @@
       "Bash(cp ./parsed-results/parsed-xml-results.json /tmp/sf-phaseD-mock-parsed/)",
       "Bash(cp ./parsed-results/relationship-graph.json /tmp/sf-phaseD-mock-parsed/)",
       "Bash(cygpath -w /tmp/sf-phaseD-mock-out)",
-      "Bash(rm -rf /tmp/sf-phaseD-mock-out)"
+      "Bash(rm -rf /tmp/sf-phaseD-mock-out)",
+      "Bash(sf --version)",
+      "Bash(sf org *)",
+      "Bash(python -c ' *)",
+      "Bash(npx tsc *)",
+      "Bash(npx playwright *)",
+      "mcp__plugin_playwright_playwright__browser_tabs",
+      "Bash(cat)",
+      "Bash(rm frontdoor.mjs)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "Bash(git restore *)",
+      "Bash(rm -f phase-e-live-form.png)",
+      "Bash(rm -rf .playwright-mcp)",
+      "Bash(rm -f C:/Projects/salesforce-automation-framework/phase-e-person-account.png C:/Projects/salesforce-automation-framework/phase-e-person-account-required.png C:/Projects/salesforce-automation-framework/phase-e-person-account-errors.png)",
+      "Bash(rm -rf C:/Projects/salesforce-automation-framework/.playwright-mcp)"
     ]
   },
   "enabledPlugins": {
@@ -62,6 +81,7 @@
     "context7@claude-plugins-official": true,
     "github@claude-plugins-official": true,
     "code-review@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": true
+    "code-simplifier@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true
   }
 }

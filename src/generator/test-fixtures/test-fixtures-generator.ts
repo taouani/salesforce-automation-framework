@@ -82,7 +82,7 @@ import * as testDataHelpers from '../utils/test-data-helpers.js';
 export const authenticatedPage = base.extend<{
   auth: { accessToken: string; instanceUrl: string };
 }>({
-  auth: async (_context, use) => {
+  auth: async ({}, use) => {
     const auth = await authenticate();
     await use(auth);
   },
@@ -95,7 +95,7 @@ export const authenticatedPage = base.extend<{
 export const testData = base.extend<{
   testData: typeof testDataHelpers;
 }>({
-  testData: async (_context, use) => {
+  testData: async ({}, use) => {
     await use(testDataHelpers);
   },
 });
@@ -106,7 +106,7 @@ export const testData = base.extend<{
 export const test = authenticatedPage.extend<{
   testData: typeof testDataHelpers;
 }>({
-  testData: async (_context, use) => {
+  testData: async ({}, use) => {
     await use(testDataHelpers);
   },
 });

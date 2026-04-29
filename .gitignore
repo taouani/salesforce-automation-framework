@@ -17,3 +17,6 @@ test-temp-*/
 my-test-project/
 generated-page-objects/
 generated-tests/
+# Playwright MCP browser traces (contain live org snapshots / PII)
+.playwright-mcp/
+phase-e-live-form.png
