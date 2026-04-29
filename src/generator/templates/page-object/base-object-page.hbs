@@ -100,8 +100,12 @@ export abstract class BaseObjectPage {
    * Tries the most specific selectors first (Lightning record edit forms
    * scope inputs by `field-name`), then falls back to common alternatives.
    * Use this when the field's translated label may vary across orgs/locales.
+   *
+   * Public so generated tests can call it via the page-object instance —
+   * the field-validation generator emits things like
+   * `accountPage.fieldByApiName('Industry').locator(...)`.
    */
-  protected fieldByApiName(apiName: string) {
+  fieldByApiName(apiName: string) {
     const selector = [
       `lightning-input-field[field-name="${apiName}"]`,
       `lightning-input[name="${apiName}"]`,

@@ -270,8 +270,14 @@ function pickActivePicklistValues(field: FieldDefinition): string[] {
   return values;
 }
 
+/**
+ * Escapes a string for safe embedding inside a JavaScript regex *literal*.
+ * Beyond the usual regex metacharacters, `/` must also be escaped because it
+ * terminates the literal. Picklist values like `F_48 | 4 1/2` exposed this:
+ * unescaped `/` made the regex parser see two regexes glued together.
+ */
 function escapeForRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 }
 
 function getInvalidFormatValue(fieldType: string): string {

@@ -54,7 +54,12 @@
       "Bash(cp ./parsed-results/parsed-xml-results.json /tmp/sf-phaseD-mock-parsed/)",
       "Bash(cp ./parsed-results/relationship-graph.json /tmp/sf-phaseD-mock-parsed/)",
       "Bash(cygpath -w /tmp/sf-phaseD-mock-out)",
-      "Bash(rm -rf /tmp/sf-phaseD-mock-out)"
+      "Bash(rm -rf /tmp/sf-phaseD-mock-out)",
+      "Bash(sf --version)",
+      "Bash(sf org *)",
+      "Bash(python -c ' *)",
+      "Bash(npx tsc *)",
+      "Bash(npx playwright *)"
     ]
   },
   "enabledPlugins": {

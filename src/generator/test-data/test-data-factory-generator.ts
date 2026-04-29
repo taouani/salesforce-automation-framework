@@ -13,67 +13,59 @@ import { logger } from '../../utils/logger.js';
 import { generateTestDataFactoryFunctionName, generateDeleteFunctionName, sanitizeVariableName, generateRelationshipHelperName } from '../name-sanitizer.js';
 
 /**
- * Generates a factory function for creating records of a specific object type
+ * Generates a factory function for creating records of a specific object type.
+ *
+ * Every factory takes a single `Record<string, unknown>` payload — required
+ * fields are documented in JSDoc rather than enforced through positional
+ * parameters. This was a deliberate change after the per-required-field
+ * signature broke object-style call sites (e.g. `createUser({ Name: 'X' })`)
+ * for objects with many required fields like `User` (15+ args).
  */
 export function generateTestDataFactory(
-  objectDef: ObjectDefinition
+  objectDef: ObjectDefinition,
 ): TestDataFactoryDefinition {
   const objectName = objectDef.fullName;
   const functionName = generateTestDataFactoryFunctionName(objectName);
-  
-  // Determine required fields (excluding system fields)
+
+  // We still surface the required-field list so callers know what to pass,
+  // but it now lives in JSDoc instead of the function signature.
   const requiredFields = objectDef.fields.filter(
-    field => field.required && !field.fullName.endsWith('__c') && !isSystemField(field.fullName)
+    (field) => field.required && !field.fullName.endsWith('__c') && !isSystemField(field.fullName),
   );
-  
-  // Build parameters from required fields
-  const parameters: ParameterDefinition[] = requiredFields.map(field => ({
-    name: sanitizeVariableName(field.fullName),
-    type: getTypeScriptType(field.type),
-    optional: false,
-    description: field.label || field.fullName,
-  }));
-  
-  // Add optional data parameter
-  parameters.push({
-    name: 'additionalData',
-    type: 'Record<string, unknown>',
-    optional: true,
-    defaultValue: '{}',
-    description: 'Additional field values to set on the record',
-  });
-  
-  // Build implementation
-  const fieldAssignments = requiredFields.map(field => {
-    const paramName = sanitizeVariableName(field.fullName);
-    return `      ${field.fullName}: ${paramName},`;
-  }).join('\n');
-  
+
+  const parameters: ParameterDefinition[] = [
+    {
+      name: 'data',
+      type: 'Record<string, unknown>',
+      optional: true,
+      defaultValue: '{}',
+      description: 'Field values to set on the record',
+    },
+  ];
+
+  const requiredDoc = requiredFields.length
+    ? requiredFields
+        .map((f) => ` *   - ${f.fullName}${f.label ? ` (${f.label})` : ''}`)
+        .join('\n')
+    : ' *   (no required fields detected from XML metadata)';
+
   const implementation = `/**
- * Creates a ${objectName} record using Salesforce REST API
- * @param ${parameters.slice(0, -1).map(p => `${p.name}: ${p.type}`).join(', ')}
- * @param additionalData - Additional field values to set on the record
- * @returns Promise with the created record ID
+ * Creates a ${objectName} record using the Salesforce REST API.
+ *
+ * Required fields (per the parsed XML metadata; the live org may differ —
+ * run sf-scanner build with --org <alias> to enrich this list):
+${requiredDoc}
+ *
+ * @param data - Field values to set on the record. Pass at minimum the
+ *   required fields above plus any others your test needs.
+ * @returns Promise with the created record ID.
  */
 export async function ${functionName}(
-  ${parameters.map(p => {
-    // If parameter has a default value, don't use '?' (optional marker)
-    // TypeScript doesn't allow both '?' and '=' together
-    if (p.defaultValue) {
-      return `${p.name}: ${p.type} = ${p.defaultValue}`;
-    }
-    return `${p.name}${p.optional ? '?' : ''}: ${p.type}`;
-  }).join(',\n  ')}
+  data: Record<string, unknown> = {},
 ): Promise<string> {
   const auth = await authenticate();
   const client = new SalesforceRESTAPIClient(auth);
-  
-  const recordData: Record<string, unknown> = {
-${fieldAssignments}
-    ...additionalData,
-  };
-  
-  return await client.createRecord('${objectName}', recordData);
+  return await client.createRecord('${objectName}', { ...data });
 }`;
 
   return {
@@ -217,31 +209,4 @@ function isSystemField(fieldName: string): boolean {
   return systemFields.includes(fieldName);
 }
 
-/**
- * Converts Salesforce field type to TypeScript type
- */
-function getTypeScriptType(salesforceType: string): string {
-  const typeMap: Record<string, string> = {
-    'String': 'string',
-    'Text': 'string',
-    'LongTextArea': 'string',
-    'RichTextArea': 'string',
-    'Email': 'string',
-    'Phone': 'string',
-    'URL': 'string',
-    'Picklist': 'string',
-    'MultiPicklist': 'string',
-    'Currency': 'number',
-    'Number': 'number',
-    'Percent': 'number',
-    'Double': 'number',
-    'Integer': 'number',
-    'Date': 'Date',
-    'DateTime': 'Date',
-    'Checkbox': 'boolean',
-    'Boolean': 'boolean',
-  };
-  
-  return typeMap[salesforceType] || 'string';
-}
 
