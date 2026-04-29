@@ -8,10 +8,17 @@
  */
 
 import { join } from 'path';
+import { existsSync } from 'fs';
+import { readFile, writeFile } from 'fs/promises';
+
 import { logger } from '../../utils/logger.js';
 import { loadConfig, ConfigError, type LoadConfigOptions } from '../../config/loader.js';
-import type { SfScannerConfig } from '../../config/schema.js';
+import type { SfScannerConfig, SfScannerConfigInput } from '../../config/schema.js';
 import { setDefaultMergeMode } from '../../generator/file-generator.js';
+import { fetchOrgCredentials, SfCliError } from '../../enrichment/sf-cli-bridge.js';
+import { createDescribeClient } from '../../enrichment/describe-client.js';
+import { enrichObjects } from '../../enrichment/object-enricher.js';
+import type { ObjectDefinition } from '../../types/xml-parsed.js';
 
 import { runScan } from './scan.js';
 import { runParseXml } from './parse-xml.js';
@@ -36,11 +43,14 @@ export interface BuildOptions {
   skipTests?: boolean;
   /** Force overwrite the project skeleton if it already exists. */
   force?: boolean;
+  /** Org alias for live describe enrichment (overrides config.org.alias). */
+  org?: string;
 }
 
 export async function runBuild(options: BuildOptions = {}): Promise<void> {
-  const overrides: Partial<SfScannerConfig> = {};
+  const overrides: Partial<SfScannerConfigInput> = {};
   if (options.metadataPath) overrides.metadataPath = options.metadataPath;
+  if (options.org) overrides.org = { alias: options.org };
 
   const loaderOptions: LoadConfigOptions = {
     configPath: options.config,
@@ -103,6 +113,10 @@ export async function runBuild(options: BuildOptions = {}): Promise<void> {
     concurrency: config.concurrency,
   });
 
+  if (config.org?.alias) {
+    await enrichParsedObjectsFromOrg(config);
+  }
+
   logger.info({ step: 'generate' }, 'Step 7/9: generate Playwright project skeleton');
   await runGenerate(config.generatedDir, {
     force: options.force ?? false,
@@ -135,6 +149,80 @@ export async function runBuild(options: BuildOptions = {}): Promise<void> {
     },
     'Build completed',
   );
+}
+
+/**
+ * Loads `parsed-xml-results.json`, enriches the `objects[]` via the live
+ * describe API, and writes the result back. Failures are logged and the
+ * pipeline continues with the unenriched data — describe enrichment is
+ * always opportunistic.
+ */
+async function enrichParsedObjectsFromOrg(config: SfScannerConfig): Promise<void> {
+  const alias = config.org?.alias;
+  if (!alias) return;
+
+  const xmlPath = join(config.parsedResultsDir, 'parsed-xml-results.json');
+  if (!existsSync(xmlPath)) {
+    logger.warn(
+      { xmlPath },
+      'Skipping org enrichment: parsed-xml-results.json not found',
+    );
+    return;
+  }
+
+  let credentials;
+  try {
+    logger.info({ alias, step: 'enrich' }, 'Resolving org credentials via sf CLI');
+    credentials = await fetchOrgCredentials(alias);
+  } catch (error) {
+    if (error instanceof SfCliError) {
+      logger.warn(
+        { alias, error: error.message },
+        'Skipping org enrichment: could not resolve credentials. Generation will continue with file-only metadata.',
+      );
+      return;
+    }
+    throw error;
+  }
+
+  let parsed: { objects?: ObjectDefinition[]; [key: string]: unknown };
+  try {
+    parsed = JSON.parse(await readFile(xmlPath, 'utf-8'));
+  } catch (error) {
+    logger.warn(
+      { xmlPath, error: (error as Error).message },
+      'Skipping org enrichment: could not read parsed-xml-results.json',
+    );
+    return;
+  }
+
+  if (!Array.isArray(parsed.objects) || parsed.objects.length === 0) {
+    logger.info({ xmlPath }, 'No objects to enrich');
+    return;
+  }
+
+  const client = createDescribeClient({ credentials });
+  const { objects, summary } = await enrichObjects(parsed.objects, client, {
+    concurrency: Math.min(config.concurrency, 5),
+  });
+
+  parsed.objects = objects;
+  await writeFile(xmlPath, JSON.stringify(parsed, null, 2), 'utf-8');
+
+  logger.info(
+    {
+      alias,
+      apiVersion: credentials.apiVersion,
+      enriched: summary.enriched,
+      missing: summary.missing,
+      errored: summary.errored,
+      fieldsUpdated: summary.fieldsUpdated,
+    },
+    'Org enrichment completed',
+  );
+  if (summary.errored > 0) {
+    logger.debug({ errors: summary.errors }, 'Per-object enrichment errors');
+  }
 }
 
 export async function buildAction(options: BuildOptions): Promise<void> {

@@ -223,11 +223,19 @@ function generatePicklistRestrictionTestCase(
   const objectName = objectDef.fullName;
   const variable = pageVar(objectName, index);
 
-  // For a restricted picklist we can't type an arbitrary value — Salesforce's
-  // combobox simply won't accept it. The most reliable assertion is that the
-  // combobox's option list contains only the metadata-declared values; a
-  // hand-edited USER-CODE block can override this for orgs with row-driven
-  // picklists. We assert at least that the combobox renders.
+  // When the framework was run with `--org <alias>`, the enricher populates
+  // `field.picklistValues` with the live org's truth. Use it to assert the
+  // declared values actually appear in the UI. Otherwise just assert the
+  // combobox renders.
+  const enrichedValues = pickActivePicklistValues(field);
+  const valueAssertions = enrichedValues
+    .slice(0, 5) // assert the first five so noisy long picklists stay readable
+    .map((value) => {
+      const escaped = value.replace(/'/g, "\\'");
+      return `    await expect(page.getByRole('option', { name: /^${escapeForRegex(escaped)}$/ }).first()).toBeVisible({ timeout: 10000 });`;
+    })
+    .join('\n');
+
   return `test('should expose only valid picklist values for ${field.fullName} @field-validation @${objectName}', async ({ page }) => {
     await page.goto(\`/lightning/o/${objectName}/new\`);
     const ${variable} = new ${pageObjectClassName}(page);
@@ -238,9 +246,32 @@ function generatePicklistRestrictionTestCase(
     await combobox.click();
     const options = page.locator('lightning-base-combobox-item, [role="option"]');
     await expect(options.first()).toBeVisible({ timeout: 10000 });
-    const count = await options.count();
+${valueAssertions ? valueAssertions + '\n' : ''}    const count = await options.count();
     expect(count).toBeGreaterThan(0);
   });`;
+}
+
+/**
+ * Extracts active picklist values when the field was enriched via the
+ * describe API. Returns an empty array on file-only runs.
+ */
+function pickActivePicklistValues(field: FieldDefinition): string[] {
+  const raw = (field as { picklistValues?: unknown }).picklistValues;
+  if (!Array.isArray(raw)) return [];
+  const values: string[] = [];
+  for (const entry of raw) {
+    if (entry && typeof entry === 'object') {
+      const e = entry as { value?: unknown; active?: unknown };
+      if (typeof e.value === 'string' && e.active !== false) {
+        values.push(e.value);
+      }
+    }
+  }
+  return values;
+}
+
+function escapeForRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function getInvalidFormatValue(fieldType: string): string {

@@ -45,7 +45,16 @@
       "Bash(node dist/cli/index.js generate-page-objects -i ./parsed-results -o /tmp/sf-phaseC)",
       "Bash(cp -r /tmp/sf-phaseC /tmp/sf-phaseC-2)",
       "Bash(node dist/cli/index.js generate-tests ./parsed-results /tmp/sf-phaseC-2)",
-      "Bash(node dist/cli/index.js generate-page-objects -i ./parsed-results -o /tmp/sf-phaseC-2)"
+      "Bash(node dist/cli/index.js generate-page-objects -i ./parsed-results -o /tmp/sf-phaseC-2)",
+      "Bash(node -e \"console.log\\(Object.keys\\(JSON.parse\\(require\\('fs'\\).readFileSync\\('./parsed-results/parsed-xml-results.json','utf-8'\\)\\)\\)\\)\")",
+      "Bash(node *)",
+      "Bash(cygpath -w /tmp/sf-phaseD-mock-parsed)",
+      "Bash(rm -rf /tmp/sf-phaseD-mock-parsed /tmp/sf-phaseD-mock-out)",
+      "Bash(mkdir -p /tmp/sf-phaseD-mock-parsed)",
+      "Bash(cp ./parsed-results/parsed-xml-results.json /tmp/sf-phaseD-mock-parsed/)",
+      "Bash(cp ./parsed-results/relationship-graph.json /tmp/sf-phaseD-mock-parsed/)",
+      "Bash(cygpath -w /tmp/sf-phaseD-mock-out)",
+      "Bash(rm -rf /tmp/sf-phaseD-mock-out)"
     ]
   },
   "enabledPlugins": {
